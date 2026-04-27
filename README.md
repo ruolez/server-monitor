@@ -19,25 +19,51 @@ Self-hosted, Docker-Compose server monitoring with email alerts.
 | Reverse pxy | nginx                                             |
 | Container   | Docker Compose                                    |
 
-## Quick start
+## Quick start (Ubuntu 24.04 LTS)
+
+One-liner — installs Docker if needed, clones to `/opt/server-monitor`, generates secrets, brings up the stack, and prints the bootstrap admin password:
 
 ```bash
+curl -fsSL https://raw.githubusercontent.com/ruolez/server-monitor/main/install.sh | sudo bash
+```
+
+Drops you into an interactive menu (Install / Update / Status / Remove). For a non-interactive install:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ruolez/server-monitor/main/install.sh | sudo bash -s -- install
+```
+
+After install:
+
+```bash
+sudo /opt/server-monitor/install.sh update     # pull latest, backup DB, rebuild, prune images
+sudo /opt/server-monitor/install.sh status     # containers + recent logs
+sudo /opt/server-monitor/install.sh remove     # tear down (with confirmation)
+```
+
+Open <http://your-server-ip:8765> and sign in as `admin` with the password the installer printed.
+
+### Manual install (any Linux with Docker)
+
+If you'd rather not run the script, or you're on a non-Ubuntu host:
+
+```bash
+git clone https://github.com/ruolez/server-monitor.git /opt/server-monitor
+cd /opt/server-monitor
 cp .env.example .env
 
-# Generate APP_SECRET_KEY (Fernet key for SMTP password encryption)
-python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'
+# Generate APP_SECRET_KEY (Fernet key)
+python3 -c 'import os, base64; print("APP_SECRET_KEY=" + base64.urlsafe_b64encode(os.urandom(32)).decode())' >> .env
 
 # Generate POSTGRES_PASSWORD
-openssl rand -base64 24
+echo "POSTGRES_PASSWORD=$(openssl rand -base64 24 | tr -d '/+=\n')" >> .env
 
-# Edit .env and paste the two values, then:
+# Optional: change HOST_PORT (defaults to 8765 in .env.example)
 docker compose up -d --build
 
 # Grab the bootstrap admin password (first boot only):
 docker logs server-monitor-web 2>&1 | grep -A1 "BOOTSTRAP ADMIN"
 ```
-
-Open <http://localhost:8765> and sign in as `admin`.
 
 ## First-time setup checklist
 
@@ -133,16 +159,23 @@ docker compose logs -f
 # Just the scheduler (per-check log line)
 docker compose logs -f scheduler
 
-# Reset bootstrap password (delete the admin row, restart web)
+# Reset bootstrap password (delete the admin row, restart web — new password is logged)
 docker compose exec postgres psql -U monitor -d monitor -c "DELETE FROM admins;"
 docker compose restart web
+docker logs server-monitor-web 2>&1 | grep -A1 "BOOTSTRAP ADMIN"
 
-# Backup
-docker compose exec postgres pg_dump -U monitor monitor > backup.sql
+# Manual backup (the installer auto-backups before every `update`)
+docker compose exec postgres pg_dump -U monitor monitor | gzip > backup.sql.gz
 
 # Restore
-cat backup.sql | docker compose exec -T postgres psql -U monitor monitor
+gunzip < backup.sql.gz | docker compose exec -T postgres psql -U monitor monitor
+
+# Restore from an installer backup
+gunzip < /opt/server-monitor/backups/db-YYYYMMDD-HHMMSS.sql.gz \
+  | docker compose -f /opt/server-monitor/docker-compose.yml exec -T postgres psql -U monitor monitor
 ```
+
+The installer keeps the **last 10 pre-update backups** in `/opt/server-monitor/backups/`. Anything older is pruned automatically on each `update`.
 
 ## ICMP and Docker Desktop (Mac / Windows) — important caveat
 
