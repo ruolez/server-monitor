@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Settings — Server Monitor{% endblock %}
+{% block heading %}Settings{% endblock %}
+{% block content %}
+  <div class="settings-grid">
+    <section class="card">
+      <h2 class="card-title">SMTP (Gmail or any STARTTLS server)</h2>
+      <p class="hint">For Gmail use <code>smtp.gmail.com:587</code> and an <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">App Password</a>. Requires 2-Step Verification on the Google account.</p>
+      <form id="smtpForm" class="form-grid">
+        <label><span>Host</span><input name="smtp_host" placeholder="smtp.gmail.com" required></label>
+        <label><span>Port</span><input name="smtp_port" type="number" min="1" max="65535" value="587" required></label>
+        <label class="col-span-2"><span>Username</span><input name="smtp_username" type="email" placeholder="alerts@example.com" required></label>
+        <label class="col-span-2">
+          <span>App password <em id="smtpPasswordState" class="hint-inline"></em></span>
+          <input name="smtp_password" type="password" placeholder="leave blank to keep current" autocomplete="new-password">
+        </label>
+        <label><span>From address</span><input name="smtp_from_address" type="email" placeholder="alerts@example.com"></label>
+        <label><span>From name</span><input name="smtp_from_name" placeholder="Server Monitor"></label>
+        <label class="checkbox col-span-2"><input type="checkbox" name="smtp_use_starttls" checked><span>Use STARTTLS (port 587)</span></label>
+        <div class="col-span-2 form-actions">
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-ghost" id="testSmtpBtn">Send test email…</button>
+          <button type="submit" class="btn btn-primary">Save SMTP</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2 class="card-title">Alerting & retention</h2>
+      <form id="policyForm" class="form-grid">
+        <label><span>Reminder interval (minutes)</span><input name="reminder_interval_minutes" type="number" min="5" required></label>
+        <label><span>Retention (days)</span><input name="retention_days" type="number" min="7" required></label>
+        <label class="col-span-2"><span>Default check interval (s)</span><input name="default_check_interval_seconds" type="number" min="5" required></label>
+        <div class="col-span-2 form-actions">
+          <span class="spacer"></span>
+          <button type="submit" class="btn btn-primary">Save policy</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <div id="testSmtpModal" class="modal" hidden>
+    <div class="modal-card modal-narrow">
+      <div class="modal-head"><h2>Send test email</h2><button class="btn-icon" id="testSmtpClose">×</button></div>
+      <form id="testSmtpForm" class="form-grid">
+        <label class="col-span-2"><span>Send a test message to</span><input name="to" type="email" required placeholder="you@example.com"></label>
+        <div class="col-span-2 form-actions">
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-ghost" id="testSmtpCancel">Cancel</button>
+          <button type="submit" class="btn btn-primary">Send</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}
+{% block scripts %}
+  <script src="{{ url_for('static', filename='js/settings.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Sign in — Server Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body class="login-body">
+  <div class="login-bg">
+    <div class="login-glow"></div>
+  </div>
+  <div class="login-shell">
+    <div class="login-card">
+      <div class="login-brand">
+        <span class="brand-glyph login-glyph"></span>
+        <div>
+          <div class="brand-name">Sentry<span class="brand-accent">.</span></div>
+          <div class="brand-sub">Server Monitor</div>
+        </div>
+      </div>
+      {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+      <form method="post" class="login-form">
+        <label>
+          <span>Username</span>
+          <input name="username" autocomplete="username" autofocus required>
+        </label>
+        <label>
+          <span>Password</span>
+          <input name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <button type="submit" class="btn btn-primary btn-block">Sign in</button>
+      </form>
+      <p class="login-hint">First boot? Check <code>docker logs server-monitor-web</code> for the bootstrap password.</p>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}History — Server Monitor{% endblock %}
+{% block heading %}History{% endblock %}
+{% block topbar_extra %}
+  <select id="serverFilter" class="select-inline"><option value="">All servers</option></select>
+{% endblock %}
+{% block content %}
+  <div class="history-grid">
+    <div class="card">
+      <h2 class="card-title">Outage timeline</h2>
+      <div id="outageList" class="timeline"></div>
+      <div id="outageEmpty" class="muted" hidden>No outages recorded.</div>
+    </div>
+    <div class="card">
+      <h2 class="card-title">Recent checks</h2>
+      <table class="data-table compact">
+        <thead><tr><th>Time</th><th>Server</th><th>Status</th><th>Latency</th><th>Error</th></tr></thead>
+        <tbody id="checkRows"></tbody>
+      </table>
+      <div id="checksEmpty" class="muted" hidden>No checks recorded yet.</div>
+    </div>
+  </div>
+{% endblock %}
+{% block scripts %}
+  <script src="{{ url_for('static', filename='js/history.js') }}"></script>
+{% endblock %}

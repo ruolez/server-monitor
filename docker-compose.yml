@@ -1,0 +1,72 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: server-monitor-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: monitor
+      POSTGRES_USER: monitor
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    # Bind only to host loopback so the scheduler (running in host network mode)
+    # can reach Postgres at 127.0.0.1:5432. Not exposed beyond the local machine.
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U monitor -d monitor"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  web:
+    build: ./app
+    container_name: server-monitor-web
+    restart: unless-stopped
+    command: gunicorn -w 2 -b 0.0.0.0:8000 --access-logfile - --error-logfile - "app.main:create_app()"
+    environment:
+      DATABASE_URL: postgresql://monitor:${POSTGRES_PASSWORD}@postgres:5432/monitor
+      APP_SECRET_KEY: ${APP_SECRET_KEY}
+      RUN_MIGRATIONS: "1"
+    volumes:
+      - ./app/static:/srv/app/static:ro
+      - ./app/templates:/srv/app/templates:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  scheduler:
+    build: ./app
+    container_name: server-monitor-scheduler
+    restart: unless-stopped
+    command: python -m app.scheduler
+    # Host networking: lets the scheduler reach LAN hosts (192.168.x.x, 10.x.x.x)
+    # for both TCP and ICMP checks.
+    #   - On Linux: works out of the box, ICMP + TCP both reach LAN.
+    #   - On Docker Desktop (Mac/Windows): you MUST enable host networking
+    #     manually in Docker Desktop → Settings → Resources → Network →
+    #     "Enable host networking". TCP/UDP will work; ICMP will NOT (Docker
+    #     Desktop's host networking is L4-only). Use TCP port checks for LAN.
+    network_mode: host
+    environment:
+      DATABASE_URL: postgresql://monitor:${POSTGRES_PASSWORD}@127.0.0.1:5432/monitor
+      APP_SECRET_KEY: ${APP_SECRET_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      web:
+        condition: service_started
+
+  nginx:
+    image: nginx:alpine
+    container_name: server-monitor-nginx
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-8765}:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - web
+
+volumes:
+  pg_data:

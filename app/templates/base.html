@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>{% block title %}Server Monitor{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='6' fill='%2322c55e'/><circle cx='16' cy='16' r='12' fill='none' stroke='%2322c55e' stroke-opacity='.35' stroke-width='2'/></svg>">
+</head>
+<body data-page="{{ page }}">
+  {% if username %}
+  <aside class="rail">
+    <div class="brand">
+      <span class="brand-glyph"></span>
+      <span class="brand-name">Sentry<span class="brand-accent">.</span></span>
+    </div>
+    <nav class="nav">
+      <a href="{{ url_for('dashboard') }}"        class="nav-item {% if page=='dashboard'  %}is-active{% endif %}"><i data-icon="dash"></i><span>Dashboard</span></a>
+      <a href="{{ url_for('servers_page') }}"     class="nav-item {% if page=='servers'    %}is-active{% endif %}"><i data-icon="srv"></i><span>Servers</span></a>
+      <a href="{{ url_for('recipients_page') }}"  class="nav-item {% if page=='recipients' %}is-active{% endif %}"><i data-icon="mail"></i><span>Recipients</span></a>
+      <a href="{{ url_for('history_page') }}"     class="nav-item {% if page=='history'    %}is-active{% endif %}"><i data-icon="hist"></i><span>History</span></a>
+      <a href="{{ url_for('settings_page') }}"    class="nav-item {% if page=='settings'   %}is-active{% endif %}"><i data-icon="cog"></i><span>Settings</span></a>
+    </nav>
+    <div class="rail-foot">
+      <div class="who"><span class="who-dot"></span>{{ username }}</div>
+      <form method="post" action="{{ url_for('auth.logout') }}"><button class="btn-link" type="submit">Sign out</button></form>
+    </div>
+  </aside>
+  {% endif %}
+
+  <main class="main">
+    <header class="topbar">
+      <h1 class="page-title">{% block heading %}{% endblock %}</h1>
+      <div class="topbar-right">
+        <div id="globalSummary" class="summary-chip" hidden>
+          <span class="dot dot-up"></span><span data-k="up">0</span> up
+          <span class="sep">·</span>
+          <span class="dot dot-down"></span><span data-k="down">0</span> down
+          <span class="sep">·</span>
+          <span class="dot dot-unknown"></span><span data-k="unknown">0</span> unknown
+        </div>
+        {% block topbar_extra %}{% endblock %}
+      </div>
+    </header>
+    <section class="page">
+      {% block content %}{% endblock %}
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="{{ url_for('static', filename='js/util.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

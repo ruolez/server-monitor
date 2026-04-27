@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Servers — Server Monitor{% endblock %}
+{% block heading %}Servers{% endblock %}
+{% block topbar_extra %}
+  <button class="btn btn-primary" id="newServerBtn">+ New server</button>
+{% endblock %}
+{% block content %}
+  <div class="card">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Status</th><th>Name</th><th>Target</th><th>Check</th>
+          <th>Interval</th><th>Last check</th><th>Latency</th>
+          <th>Recipients</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="serverRows"></tbody>
+    </table>
+    <div id="serversEmpty" class="empty-state empty-inline" hidden>
+      <p>No servers configured yet. Click <b>+ New server</b> to add the first one.</p>
+    </div>
+  </div>
+
+  <div id="serverModal" class="modal" hidden>
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2 id="serverModalTitle">New server</h2>
+        <button class="btn-icon" id="serverModalClose" aria-label="Close">×</button>
+      </div>
+      <form id="serverForm" class="form-grid">
+        <input type="hidden" name="id">
+        <label class="col-span-2"><span>Name</span><input name="name" required maxlength="120" placeholder="prod-db-1"></label>
+        <label class="col-span-2"><span>Hostname or IP</span><input name="hostname" required maxlength="255" placeholder="10.0.0.5 or db.example.com"></label>
+        <label><span>Check type</span>
+          <select name="check_type" id="checkTypeSelect">
+            <option value="icmp">ICMP ping</option>
+            <option value="tcp">TCP port</option>
+          </select>
+        </label>
+        <label id="tcpPortField" hidden><span>TCP port</span><input name="tcp_port" type="number" min="1" max="65535" placeholder="443"></label>
+        <label><span>Interval (s)</span><input name="interval_seconds" type="number" min="5" value="60"></label>
+        <label><span>Timeout (s)</span><input name="timeout_seconds" type="number" min="1" value="5"></label>
+        <label><span>Failures before DOWN</span><input name="failure_threshold" type="number" min="1" value="3"></label>
+        <label class="checkbox col-span-2"><input type="checkbox" name="enabled" checked><span>Enabled</span></label>
+        <fieldset class="col-span-2">
+          <legend>Recipient overrides</legend>
+          <p class="hint">If none selected, the global default recipients receive alerts.</p>
+          <div id="recipientCheckboxes" class="recipient-list"></div>
+        </fieldset>
+        <div class="col-span-2 form-actions">
+          <button type="button" class="btn btn-ghost" id="serverDeleteBtn" hidden>Delete</button>
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-ghost" id="serverCancelBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}
+{% block scripts %}
+  <script src="{{ url_for('static', filename='js/servers.js') }}"></script>
+{% endblock %}

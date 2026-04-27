@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Recipients — Server Monitor{% endblock %}
+{% block heading %}Recipients{% endblock %}
+{% block topbar_extra %}
+  <button class="btn btn-primary" id="newRecipientBtn">+ New recipient</button>
+{% endblock %}
+{% block content %}
+  <div class="card">
+    <table class="data-table">
+      <thead><tr><th>Email</th><th>Name</th><th>Default</th><th>Enabled</th><th></th></tr></thead>
+      <tbody id="recipientRows"></tbody>
+    </table>
+    <div id="recipientsEmpty" class="empty-state empty-inline" hidden>
+      <p>No recipients yet. Add at least one and mark it as <b>Default</b> so global alerts have somewhere to go.</p>
+    </div>
+  </div>
+
+  <div id="recipientModal" class="modal" hidden>
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2 id="recipientModalTitle">New recipient</h2>
+        <button class="btn-icon" id="recipientModalClose">×</button>
+      </div>
+      <form id="recipientForm" class="form-grid">
+        <input type="hidden" name="id">
+        <label class="col-span-2"><span>Email</span><input name="email" type="email" required placeholder="ops@example.com"></label>
+        <label class="col-span-2"><span>Name</span><input name="name" maxlength="120" placeholder="On-call"></label>
+        <label class="checkbox"><input type="checkbox" name="is_default"><span>Default recipient</span></label>
+        <label class="checkbox"><input type="checkbox" name="enabled" checked><span>Enabled</span></label>
+        <div class="col-span-2 form-actions">
+          <button type="button" class="btn btn-ghost" id="recipientDeleteBtn" hidden>Delete</button>
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-ghost" id="recipientCancelBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}
+{% block scripts %}
+  <script src="{{ url_for('static', filename='js/recipients.js') }}"></script>
+{% endblock %}

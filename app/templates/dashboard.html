@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Server Monitor{% endblock %}
+{% block heading %}Dashboard{% endblock %}
+{% block topbar_extra %}
+  <span class="topbar-meta"><span class="pulse-dot"></span> Live · 5s</span>
+{% endblock %}
+{% block content %}
+  <div id="cards" class="card-grid"></div>
+  <div id="empty" class="empty-state" hidden>
+    <h2>No servers yet</h2>
+    <p>Add one on the <a href="{{ url_for('servers_page') }}">Servers</a> page to start monitoring.</p>
+  </div>
+{% endblock %}
+{% block scripts %}
+  <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}
