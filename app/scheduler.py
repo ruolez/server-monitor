@@ -8,6 +8,7 @@ import logging
 import os
 import signal
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 
@@ -20,24 +21,38 @@ logging.basicConfig(
 logger = logging.getLogger("scheduler")
 
 
+# Checks run concurrently so unreachable hosts (each blocking for its full
+# timeout) can't starve the rest of the sweep and push checks past their
+# interval. Sized below the DB pool (max 8 connections).
+_check_pool = ThreadPoolExecutor(max_workers=6, thread_name_prefix="check")
+
+
+def _checked(server: dict) -> None:
+    try:
+        result = checker.process_server(server)
+        logger.info(
+            "checked %s: status=%s latency=%s transition=%s",
+            server["name"],
+            result["status"],
+            result["latency_ms"],
+            result["transition"],
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("check failed for server id=%s", server["id"])
+
+
 def run_due_checks() -> None:
     try:
         due = checker.fetch_due_servers()
     except Exception:  # noqa: BLE001
         logger.exception("failed to fetch due servers")
         return
-    for server in due:
-        try:
-            result = checker.process_server(server)
-            logger.info(
-                "checked %s: status=%s latency=%s transition=%s",
-                server["name"],
-                result["status"],
-                result["latency_ms"],
-                result["transition"],
-            )
-        except Exception:  # noqa: BLE001
-            logger.exception("check failed for server id=%s", server["id"])
+    if not due:
+        return
+    # Wait for the batch so max_instances=1/coalesce still bound concurrency.
+    futures = [_check_pool.submit(_checked, server) for server in due]
+    for f in futures:
+        f.result()
 
 
 def run_reminders() -> None:
