@@ -145,26 +145,17 @@ install_docker_if_missing() {
     ok "Docker installed: $(docker --version)"
 }
 
-# ---------------------------- icmp sysctl ------------------------------------
+# ---------------------------- legacy cleanup ---------------------------------
 
+# Older versions persisted a ping_group_range sysctl for the (since removed)
+# host-network scheduler. The scheduler now runs on the bridge network where
+# Docker enables unprivileged ICMP itself, so the host sysctl is unnecessary.
 SYSCTL_FILE="/etc/sysctl.d/99-server-monitor.conf"
 
-configure_unprivileged_icmp() {
-    # The scheduler container runs with network_mode: host, so the HOST's
-    # net.ipv4.ping_group_range governs its unprivileged ICMP sockets (Docker
-    # cannot set sysctls on host-network containers). Persist the setting so
-    # a reboot can't silently break every ICMP check.
-    info "Enabling unprivileged ICMP (net.ipv4.ping_group_range) ..."
-    cat > "$SYSCTL_FILE" <<'EOF'
-# server-monitor: allow unprivileged ICMP echo sockets for the host-network
-# scheduler container. Without this, every ICMP check fails instantly with
-# "A prior configuration of your OS is required".
-net.ipv4.ping_group_range = 0 2147483647
-EOF
-    if sysctl -p "$SYSCTL_FILE" >/dev/null 2>&1; then
-        ok "Unprivileged ICMP enabled (persisted in $SYSCTL_FILE)."
-    else
-        warn "Could not apply $SYSCTL_FILE — ICMP checks may fail. Apply manually: sysctl -p $SYSCTL_FILE"
+remove_legacy_sysctl() {
+    if [ -f "$SYSCTL_FILE" ]; then
+        rm -f "$SYSCTL_FILE"
+        info "Removed legacy $SYSCTL_FILE (no longer needed; scheduler uses bridge networking)."
     fi
 }
 
@@ -308,7 +299,7 @@ action_install() {
     require_root
     require_ubuntu
     install_docker_if_missing
-    configure_unprivileged_icmp
+    remove_legacy_sysctl
     ensure_repo_present
 
     local port="$DEFAULT_PORT"
@@ -406,7 +397,7 @@ action_update() {
     fi
 
     # ---- post stage: runs from the freshly-pulled script -------------------
-    configure_unprivileged_icmp
+    remove_legacy_sysctl
 
     local port
     port="$(grep -E '^HOST_PORT=' "$INSTALL_DIR/.env" 2>/dev/null | tail -1 | cut -d= -f2- || true)"
@@ -487,10 +478,7 @@ EOF
         info "Kept $INSTALL_DIR (re-run with 'install' to start over)."
     fi
 
-    if [ -f "$SYSCTL_FILE" ]; then
-        rm -f "$SYSCTL_FILE"
-        info "Removed $SYSCTL_FILE (ping_group_range reverts on next reboot)."
-    fi
+    remove_legacy_sysctl
 
     if has_cmd docker && prompt_yes_no "Also uninstall Docker Engine itself?" "n"; then
         info "Removing Docker packages ..."

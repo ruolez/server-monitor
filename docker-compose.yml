@@ -7,10 +7,6 @@ services:
       POSTGRES_DB: monitor
       POSTGRES_USER: monitor
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    # Bind only to host loopback so the scheduler (running in host network mode)
-    # can reach Postgres at 127.0.0.1:5432. Not exposed beyond the local machine.
-    ports:
-      - "127.0.0.1:5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
@@ -40,16 +36,16 @@ services:
     container_name: server-monitor-scheduler
     restart: unless-stopped
     command: python -m app.scheduler
-    # Host networking: lets the scheduler reach LAN hosts (192.168.x.x, 10.x.x.x)
-    # for both TCP and ICMP checks.
-    #   - On Linux: works out of the box, ICMP + TCP both reach LAN.
-    #   - On Docker Desktop (Mac/Windows): you MUST enable host networking
-    #     manually in Docker Desktop → Settings → Resources → Network →
-    #     "Enable host networking". TCP/UDP will work; ICMP will NOT (Docker
-    #     Desktop's host networking is L4-only). Use TCP port checks for LAN.
-    network_mode: host
+    # Bridge network (same as web), NOT host networking. Probes reach LAN
+    # hosts through NAT on Linux, and Docker enables unprivileged ICMP
+    # (net.ipv4.ping_group_range) inside every container namespace it
+    # creates — so ICMP works without any host sysctl. Host networking
+    # instead inherits the HOST's sysctls/firewall, which broke ICMP in the
+    # field while the bridge-networked web container checked fine.
+    # Note: on Docker Desktop (Mac/Win) LAN targets are unreachable from
+    # containers either way — deploy on Linux for real monitoring.
     environment:
-      DATABASE_URL: postgresql://monitor:${POSTGRES_PASSWORD}@127.0.0.1:5432/monitor
+      DATABASE_URL: postgresql://monitor:${POSTGRES_PASSWORD}@postgres:5432/monitor
       APP_SECRET_KEY: ${APP_SECRET_KEY}
     depends_on:
       postgres:

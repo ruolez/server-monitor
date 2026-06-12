@@ -68,13 +68,12 @@ None configured. `bash -n install.sh` and `python3 -m compileall app` for sanity
 ### Two containers, one image (`web` + `scheduler`)
 Both are built from `app/Dockerfile`. `web` runs `gunicorn -w 2 ... app.main:create_app()`. `scheduler` runs `python -m app.scheduler`. They share code but **never share process**. Why: gunicorn forks workers, so APScheduler running inside Flask would fire every job N times. The scheduler container is the single owner of all check execution and alert dispatch.
 
-### Scheduler is on host networking; web is on bridge
-`scheduler` has `network_mode: host` in `docker-compose.yml` so ICMP and TCP probes can reach LAN hosts (`192.168.x.x`, `10.x.x.x`) on Linux deployments. As a consequence:
+### All containers are on the bridge network — scheduler included, deliberately
+The scheduler originally used `network_mode: host` so probes could reach the LAN directly. That was reverted: a host-network container inherits the **host's** sysctls (`net.ipv4.ping_group_range`) and firewall, which made every unprivileged ICMP socket fail in production while the bridge-networked web container's "check now" worked fine. On the bridge, Docker enables unprivileged ICMP inside the container namespace itself and probes reach LAN hosts (`192.168.x.x`, `10.x.x.x`) through NAT on Linux. Don't reintroduce host networking without re-reading this history.
 
-- Postgres publishes its port to `127.0.0.1:5432` (not just inside the bridge network) so the host-mode scheduler can connect.
-- The scheduler's `DATABASE_URL` uses `127.0.0.1`; the web container's uses the bridge service name `postgres`. They are intentionally different env values per service.
+Both `web` and `scheduler` use `DATABASE_URL` with the service name `postgres`; the Postgres port is not published to the host at all.
 
-**Docker Desktop Mac caveat:** host networking on Docker Desktop is L4-only (no ICMP) and doesn't follow Mac VPN routes. LAN monitoring from a Mac dev box is not possible regardless of config — deploy on Linux for real testing. Documented in README.
+**Docker Desktop Mac caveat:** containers in the LinuxKit VM cannot exchange ICMP with the Mac's LAN (and host networking there is L4-only anyway). LAN monitoring from a Mac dev box is not possible regardless of config — deploy on Linux for real testing. Internet ICMP (e.g. `8.8.8.8`) does work from the Mac bridge, which is handy for local smoke tests.
 
 ### State machine lives in `app/checker.py`
 `process_server(server)` is the single entry point that:
