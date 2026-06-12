@@ -170,6 +170,18 @@ def delete_server(server_id: int):
     return jsonify(deleted=server_id)
 
 
+@bp.post("/check-all")
+@auth.login_required
+def check_all():
+    """Mark every enabled server due. The scheduler's 2s tick picks them up
+    and runs them through its parallel pool — avoids blocking this request
+    for up to N * timeout seconds like running the checks inline would."""
+    with db.cursor(commit=True) as cur:
+        cur.execute("UPDATE servers SET last_checked_at = NULL WHERE enabled")
+        queued = cur.rowcount
+    return jsonify(queued=queued)
+
+
 @bp.post("/<int:server_id>/check-now")
 @auth.login_required
 def check_now(server_id: int):

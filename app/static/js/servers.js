@@ -163,6 +163,21 @@
     }
   });
 
+  $('#checkAllBtn').addEventListener('click', async () => {
+    const btn = $('#checkAllBtn');
+    btn.disabled = true;
+    try {
+      const r = await api('/api/servers/check-all', { method: 'POST' });
+      toast(`Queued ${r.queued} check(s) — results in a few seconds`, 'success');
+      // Checks run in the scheduler; refresh once they've had time to land.
+      setTimeout(() => { loadAll(); btn.disabled = false; }, 4000);
+      setTimeout(loadAll, 9000);
+    } catch (err) {
+      toast(err.message || 'Check all failed', 'error');
+      btn.disabled = false;
+    }
+  });
+
   $('#newServerBtn').addEventListener('click', openCreateModal);
   $('#serverModalClose').addEventListener('click', () => hideModal(modal));
   $('#serverCancelBtn').addEventListener('click', () => hideModal(modal));

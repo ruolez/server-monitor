@@ -148,6 +148,7 @@ All endpoints require an authenticated session (cookie). 401 redirects HTML page
 | PUT    | `/api/servers/<id>`                   | Update server |
 | DELETE | `/api/servers/<id>`                   | Delete server |
 | POST   | `/api/servers/<id>/check-now`         | Run a one-off check |
+| POST   | `/api/servers/check-all`              | Queue an immediate check of every enabled server |
 | GET    | `/api/recipients`                     | List recipients |
 | POST   | `/api/recipients`                     | Create recipient |
 | PUT    | `/api/recipients/<id>`                | Update recipient |
