@@ -352,45 +352,65 @@ action_update() {
     require_root
     [ -f "$INSTALL_DIR/docker-compose.yml" ] || die "No install found at $INSTALL_DIR. Run install first."
     has_cmd docker && docker compose version >/dev/null 2>&1 || die "Docker is required."
+
+    if [ "${SM_UPDATE_STAGE:-}" != "post" ]; then
+        # Self-update hazard: 'git reset --hard' below replaces this very file
+        # while bash is still reading it. Re-exec from a temp copy first (when
+        # we're running from the repo file, not curl|bash), so execution is
+        # immune to the replacement.
+        if [ -z "${SM_UPDATE_STAGE:-}" ] && [ -f "${BASH_SOURCE[0]:-}" ]; then
+            local self_copy
+            self_copy="$(mktemp /tmp/server-monitor-install.XXXXXX)"
+            cp "${BASH_SOURCE[0]}" "$self_copy"
+            SM_UPDATE_STAGE=pre exec bash "$self_copy" update
+        fi
+
+        info "Backing up the database before update ..."
+        mkdir -p "$INSTALL_DIR/backups"
+        chmod 700 "$INSTALL_DIR/backups"
+        local stamp; stamp="$(date +%Y%m%d-%H%M%S)"
+        local backup_file="$INSTALL_DIR/backups/db-$stamp.sql.gz"
+        if ( cd "$INSTALL_DIR" && docker compose ps --status running 2>/dev/null | grep -q server-monitor-db ); then
+            ( cd "$INSTALL_DIR" \
+              && docker compose exec -T postgres pg_dump -U monitor monitor \
+              | gzip > "$backup_file" )
+            ok "DB backup → $backup_file ($(du -h "$backup_file" | cut -f1))"
+        else
+            warn "Postgres container not running — skipping DB backup."
+            rm -f "$backup_file"
+        fi
+
+        # Trim to last $BACKUP_KEEP files
+        local to_delete
+        to_delete="$(ls -1t "$INSTALL_DIR"/backups/db-*.sql.gz 2>/dev/null | tail -n +$((BACKUP_KEEP+1)) || true)"
+        if [ -n "$to_delete" ]; then
+            echo "$to_delete" | xargs -r rm -f --
+            info "Pruned backups older than the most recent $BACKUP_KEEP."
+        fi
+
+        info "Pulling latest code from origin/main ..."
+        git -C "$INSTALL_DIR" fetch --prune origin
+        local before; before="$(git -C "$INSTALL_DIR" rev-parse HEAD)"
+        git -C "$INSTALL_DIR" reset --hard origin/main
+        local after; after="$(git -C "$INSTALL_DIR" rev-parse HEAD)"
+        if [ "$before" = "$after" ]; then
+            info "Already on the latest commit ($(git -C "$INSTALL_DIR" rev-parse --short HEAD))."
+        else
+            ok "Updated $(git -C "$INSTALL_DIR" rev-parse --short "$before") → $(git -C "$INSTALL_DIR" rev-parse --short "$after")"
+        fi
+
+        # Hand the rest of the update to the freshly-pulled script so new
+        # installer steps (sysctls, future migrations) apply in this same run.
+        [ "${SM_UPDATE_STAGE:-}" = "pre" ] && rm -f -- "${BASH_SOURCE[0]}"
+        SM_UPDATE_STAGE=post exec bash "$INSTALL_DIR/install.sh" update
+    fi
+
+    # ---- post stage: runs from the freshly-pulled script -------------------
     configure_unprivileged_icmp
 
     local port
     port="$(grep -E '^HOST_PORT=' "$INSTALL_DIR/.env" 2>/dev/null | tail -1 | cut -d= -f2- || true)"
     port="${port:-$DEFAULT_PORT}"
-
-    info "Backing up the database before update ..."
-    mkdir -p "$INSTALL_DIR/backups"
-    chmod 700 "$INSTALL_DIR/backups"
-    local stamp; stamp="$(date +%Y%m%d-%H%M%S)"
-    local backup_file="$INSTALL_DIR/backups/db-$stamp.sql.gz"
-    if ( cd "$INSTALL_DIR" && docker compose ps --status running 2>/dev/null | grep -q server-monitor-db ); then
-        ( cd "$INSTALL_DIR" \
-          && docker compose exec -T postgres pg_dump -U monitor monitor \
-          | gzip > "$backup_file" )
-        ok "DB backup → $backup_file ($(du -h "$backup_file" | cut -f1))"
-    else
-        warn "Postgres container not running — skipping DB backup."
-        rm -f "$backup_file"
-    fi
-
-    # Trim to last $BACKUP_KEEP files
-    local to_delete
-    to_delete="$(ls -1t "$INSTALL_DIR"/backups/db-*.sql.gz 2>/dev/null | tail -n +$((BACKUP_KEEP+1)) || true)"
-    if [ -n "$to_delete" ]; then
-        echo "$to_delete" | xargs -r rm -f --
-        info "Pruned backups older than the most recent $BACKUP_KEEP."
-    fi
-
-    info "Pulling latest code from origin/main ..."
-    git -C "$INSTALL_DIR" fetch --prune origin
-    local before; before="$(git -C "$INSTALL_DIR" rev-parse HEAD)"
-    git -C "$INSTALL_DIR" reset --hard origin/main
-    local after; after="$(git -C "$INSTALL_DIR" rev-parse HEAD)"
-    if [ "$before" = "$after" ]; then
-        info "Already on the latest commit ($(git -C "$INSTALL_DIR" rev-parse --short HEAD))."
-    else
-        ok "Updated $(git -C "$INSTALL_DIR" rev-parse --short "$before") → $(git -C "$INSTALL_DIR" rev-parse --short "$after")"
-    fi
 
     info "Pulling base images (postgres, nginx) ..."
     ( cd "$INSTALL_DIR" && docker compose pull --quiet postgres nginx ) || true
