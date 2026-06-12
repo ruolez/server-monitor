@@ -111,7 +111,7 @@ The **scheduler** is a separate container so APScheduler isn't duplicated across
 | Daily report    | every 1 min (gate) | Sends the daily health report once per day at the configured local time |
 | Retention prune | daily 03:00 UTC    | Deletes `check_results` and `outage_events` older than `retention_days` (default 90) |
 
-ICMP runs unprivileged via `icmplib` — `docker-compose.yml` sets `net.ipv4.ping_group_range=0 2147483647` on the scheduler container so a non-root process can use ICMP datagram sockets. No `NET_RAW` capability needed.
+ICMP runs unprivileged via `icmplib` using ICMP datagram sockets — no `NET_RAW` capability needed. Because the scheduler uses `network_mode: host`, the **host's** `net.ipv4.ping_group_range` sysctl governs those sockets (Docker cannot set sysctls on host-network containers). `install.sh` persists `net.ipv4.ping_group_range = 0 2147483647` in `/etc/sysctl.d/99-server-monitor.conf` on install and update so reboots can't break ICMP checks. Symptom when it's missing: every ICMP check fails instantly with `icmp error: A prior configuration of your OS is required`, while TCP checks and the web container's "check now" still work.
 
 ## Alerting state machine
 
