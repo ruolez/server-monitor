@@ -229,7 +229,7 @@ wait_for_health() {
     local port="$1" tries=30
     info "Waiting for /health on http://localhost:$port ..."
     while [ $tries -gt 0 ]; do
-        if curl -fsS -o /dev/null "http://localhost:$port/health"; then
+        if curl -fs -o /dev/null "http://localhost:$port/health"; then
             ok "Service is healthy."
             return 0
         fi
