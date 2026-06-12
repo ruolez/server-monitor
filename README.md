@@ -156,6 +156,7 @@ All endpoints require an authenticated session (cookie). 401 redirects HTML page
 | PUT    | `/api/settings`                       | Update SMTP + policy |
 | POST   | `/api/settings/test-smtp`             | Send a test email |
 | POST   | `/api/settings/send-daily-report`     | Send the daily health report immediately |
+| POST   | `/api/auth/change-password`           | Change the logged-in admin's password |
 | GET    | `/api/history/outages`                | Outage timeline |
 | GET    | `/api/history/checks`                 | Recent check results |
 | GET    | `/health`                             | Liveness (checks DB) |

@@ -71,3 +71,26 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for("auth.login"))
+
+
+@bp.post("/api/auth/change-password")
+@login_required
+def change_password():
+    body = request.get_json(silent=True) or {}
+    current = body.get("current_password") or ""
+    new = body.get("new_password") or ""
+    if len(new) < 8:
+        return jsonify(error="New password must be at least 8 characters."), 400
+    with db.cursor() as cur:
+        cur.execute(
+            "SELECT password_hash FROM admins WHERE id = %s", (session["admin_id"],)
+        )
+        row = cur.fetchone()
+    if not row or not verify_password(current, row["password_hash"]):
+        return jsonify(error="Current password is incorrect."), 400
+    with db.cursor(commit=True) as cur:
+        cur.execute(
+            "UPDATE admins SET password_hash = %s WHERE id = %s",
+            (hash_password(new), session["admin_id"]),
+        )
+    return jsonify(changed=True)

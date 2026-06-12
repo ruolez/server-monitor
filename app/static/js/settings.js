@@ -97,6 +97,28 @@
     }
   });
 
+  const passwordForm = $('#passwordForm');
+  passwordForm.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const current = passwordForm.elements.current_password.value;
+    const next    = passwordForm.elements.new_password.value;
+    const confirm = passwordForm.elements.confirm_password.value;
+    if (next !== confirm) {
+      toast('New passwords do not match', 'error');
+      return;
+    }
+    try {
+      await api('/api/auth/change-password', {
+        method: 'POST',
+        body: { current_password: current, new_password: next },
+      });
+      passwordForm.reset();
+      toast('Password changed', 'success');
+    } catch (err) {
+      toast(err.message || 'Password change failed', 'error');
+    }
+  });
+
   $('#testSmtpBtn').addEventListener('click', () => { testForm.reset(); showModal(testModal); });
   $('#testSmtpClose').addEventListener('click', () => hideModal(testModal));
   $('#testSmtpCancel').addEventListener('click', () => hideModal(testModal));
