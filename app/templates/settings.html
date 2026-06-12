@@ -31,6 +31,9 @@
         <label><span>Reminder interval (minutes)</span><input name="reminder_interval_minutes" type="number" min="5" required></label>
         <label><span>Retention (days)</span><input name="retention_days" type="number" min="7" required></label>
         <label class="col-span-2"><span>Default check interval (s)</span><input name="default_check_interval_seconds" type="number" min="5" required></label>
+        <label><span>Flap window (minutes)</span><input name="flap_window_minutes" type="number" min="5" required></label>
+        <label><span>Outages before flapping</span><input name="flap_threshold" type="number" min="2" required></label>
+        <p class="hint col-span-2" style="margin:0">A server with that many outages inside the window is marked <b>flapping</b>: per-transition emails pause until it stays stable for a full window, then a summary is sent.</p>
         <div class="col-span-2 form-actions">
           <span class="spacer"></span>
           <button type="submit" class="btn btn-primary">Save policy</button>
@@ -56,10 +59,29 @@
           </select>
         </label>
         <p class="hint col-span-2" id="reportLastSent" hidden></p>
+        <label class="checkbox col-span-2"><input type="checkbox" name="public_status_enabled"><span>Public status page — anyone on the network can view <a href="/status" target="_blank" rel="noopener">/status</a> (read-only, names and status only)</span></label>
         <div class="col-span-2 form-actions">
           <span class="spacer"></span>
           <button type="button" class="btn btn-ghost" id="sendReportBtn">Send report now</button>
           <button type="submit" class="btn btn-primary">Save report settings</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2 class="card-title">Maintenance windows</h2>
+      <p class="hint">Alerts for covered servers are silenced while a window is active. Checks keep running and outages are still recorded — if a server is still down when the window ends, the DOWN alert fires then.</p>
+      <div id="maintList" class="maint-list"></div>
+      <form id="maintForm" class="form-grid">
+        <label class="col-span-2"><span>Server</span>
+          <select name="server_id"><option value="">All servers</option></select>
+        </label>
+        <label><span>Starts</span><input name="starts_at" type="datetime-local" required></label>
+        <label><span>Ends</span><input name="ends_at" type="datetime-local" required></label>
+        <label class="col-span-2"><span>Note (optional)</span><input name="note" maxlength="255" placeholder="e.g. router firmware upgrade tonight"></label>
+        <div class="col-span-2 form-actions">
+          <span class="spacer"></span>
+          <button type="submit" class="btn btn-primary">Add window</button>
         </div>
       </form>
     </section>

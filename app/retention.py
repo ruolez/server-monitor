@@ -23,10 +23,18 @@ def prune_old_rows() -> dict:
         )
         outage_deleted = cur.rowcount
 
+        cur.execute(
+            "DELETE FROM email_outbox WHERE status IN ('sent','cancelled','failed') "
+            "AND created_at < now() - interval '7 days'"
+        )
+        outbox_deleted = cur.rowcount
+
     logger.info(
-        "retention prune: removed %d check_results, %d outage_events older than %d days",
+        "retention prune: removed %d check_results, %d outage_events older than %d days, %d outbox rows",
         check_deleted,
         outage_deleted,
         days,
+        outbox_deleted,
     )
-    return {"check_results": check_deleted, "outage_events": outage_deleted, "days": days}
+    return {"check_results": check_deleted, "outage_events": outage_deleted,
+            "email_outbox": outbox_deleted, "days": days}

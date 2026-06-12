@@ -37,6 +37,8 @@ def _validate_payload(data: dict, partial: bool = False) -> tuple[dict | None, s
         ("interval_seconds", 5),
         ("timeout_seconds", 1),
         ("failure_threshold", 1),
+        ("recovery_threshold", 1),
+        ("latency_warn_checks", 1),
     ):
         if field in data:
             try:
@@ -46,6 +48,19 @@ def _validate_payload(data: dict, partial: bool = False) -> tuple[dict | None, s
             if v < lo:
                 return None, f"{field} must be >= {lo}"
             out[field] = v
+
+    # Optional: NULL/blank disables latency-degradation alerting.
+    if "latency_warn_ms" in data:
+        if data["latency_warn_ms"] in (None, ""):
+            out["latency_warn_ms"] = None
+        else:
+            try:
+                v = int(data["latency_warn_ms"])
+            except (TypeError, ValueError):
+                return None, "latency_warn_ms must be an integer or null"
+            if v < 1:
+                return None, "latency_warn_ms must be >= 1"
+            out["latency_warn_ms"] = v
 
     if "enabled" in data:
         out["enabled"] = bool(data["enabled"])
@@ -97,15 +112,20 @@ def create_server():
         cur.execute(
             """
             INSERT INTO servers (name, hostname, check_type, tcp_port,
-                                 interval_seconds, timeout_seconds, failure_threshold, enabled)
+                                 interval_seconds, timeout_seconds, failure_threshold,
+                                 recovery_threshold, latency_warn_ms, latency_warn_checks, enabled)
             VALUES (%(name)s, %(hostname)s, %(check_type)s, %(tcp_port)s,
-                    %(interval_seconds)s, %(timeout_seconds)s, %(failure_threshold)s, %(enabled)s)
+                    %(interval_seconds)s, %(timeout_seconds)s, %(failure_threshold)s,
+                    %(recovery_threshold)s, %(latency_warn_ms)s, %(latency_warn_checks)s, %(enabled)s)
             RETURNING id
             """,
             {
                 "interval_seconds": 60,
                 "timeout_seconds": 5,
                 "failure_threshold": 3,
+                "recovery_threshold": 1,
+                "latency_warn_ms": None,
+                "latency_warn_checks": 3,
                 "enabled": True,
                 **data,
             },

@@ -1,6 +1,6 @@
 'use strict';
 (() => {
-  const { $, api, fmtDuration, fmtTime, escapeHtml } = window.SM;
+  const { $, api, fmtDuration, fmtTime, escapeHtml, renderUptimeBars } = window.SM;
 
   const outageList    = $('#outageList');
   const outageEmpty   = $('#outageEmpty');
@@ -67,10 +67,46 @@
     `).join('');
   }
 
-  serverFilter.addEventListener('change', () => { loadOutages(); loadChecks(); });
+  // ---- daily uptime bars ----
+  const uptimeRows  = $('#uptimeRows');
+  const uptimeEmpty = $('#uptimeEmpty');
+  let uptimeDays = 30;
+
+  async function loadUptime() {
+    const id = serverFilter.value;
+    const url = `/api/uptime?days=${uptimeDays}` + (id ? `&server_id=${id}` : '');
+    const data = await api(url);
+    const servers = data.servers || [];
+    const withData = servers.filter(s => s.days.length || !id);
+    if (!withData.length) {
+      uptimeRows.innerHTML = '';
+      uptimeEmpty.hidden = false;
+      return;
+    }
+    uptimeEmpty.hidden = true;
+    uptimeRows.innerHTML = withData.map(s => `
+      <div class="uptime-row">
+        <div class="uptime-label">
+          <b>${escapeHtml(s.name)}</b>
+          <span class="num">${s.uptime_pct != null ? s.uptime_pct + '%' : 'no data'}</span>
+        </div>
+        ${renderUptimeBars(s.days, uptimeDays)}
+      </div>
+    `).join('');
+  }
+
+  $('#uptimeTabs').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-days]');
+    if (!btn) return;
+    uptimeDays = Number(btn.dataset.days);
+    for (const b of $('#uptimeTabs').querySelectorAll('button')) b.classList.toggle('is-active', b === btn);
+    loadUptime();
+  });
+
+  serverFilter.addEventListener('change', () => { loadOutages(); loadChecks(); loadUptime(); });
 
   (async () => {
     await loadServers();
-    await Promise.all([loadOutages(), loadChecks()]);
+    await Promise.all([loadOutages(), loadChecks(), loadUptime()]);
   })();
 })();

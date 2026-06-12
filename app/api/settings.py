@@ -84,8 +84,29 @@ def update_settings():
         except (TypeError, ValueError):
             return jsonify(error="default_check_interval_seconds must be >= 5"), 400
 
+    if "flap_window_minutes" in body:
+        try:
+            v = int(body["flap_window_minutes"])
+            if v < 5:
+                raise ValueError
+            fields["flap_window_minutes"] = v
+        except (TypeError, ValueError):
+            return jsonify(error="flap_window_minutes must be >= 5"), 400
+
+    if "flap_threshold" in body:
+        try:
+            v = int(body["flap_threshold"])
+            if v < 2:
+                raise ValueError
+            fields["flap_threshold"] = v
+        except (TypeError, ValueError):
+            return jsonify(error="flap_threshold must be >= 2"), 400
+
     if "daily_report_enabled" in body:
         fields["daily_report_enabled"] = bool(body["daily_report_enabled"])
+
+    if "public_status_enabled" in body:
+        fields["public_status_enabled"] = bool(body["public_status_enabled"])
 
     if "daily_report_time" in body:
         try:

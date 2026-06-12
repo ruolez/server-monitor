@@ -10,7 +10,7 @@ import logging
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from . import db, mailer
+from . import db, mailer, outbox
 from .alerting import _humanize_seconds
 
 logger = logging.getLogger(__name__)
@@ -188,13 +188,16 @@ def daily_report_pass() -> bool:
     if row["daily_report_last_sent_on"] == now_local.date():
         return False
 
-    try:
-        send_daily_report()
-    except mailer.MailerError as exc:
-        logger.error("daily report send failed (will retry next minute): %s", exc)
+    # Queue through the outbox (SMTP retries happen there) and mark sent at
+    # enqueue time; only a missing-recipients config error retries next minute.
+    to = _default_recipients()
+    if not to:
+        logger.error("daily report skipped (will retry next minute): no default recipients")
         return False
+    stats = _collect_stats()
+    subject, html_body, text = _report_template(stats, now_local)
+    outbox.enqueue(None, "report", to, subject, html_body, text)
 
-    # Mark only after a successful send, same pattern as alerting.fire_*.
     with db.cursor(commit=True) as cur:
         cur.execute(
             "UPDATE app_settings SET daily_report_last_sent_on = %s WHERE id = 1",

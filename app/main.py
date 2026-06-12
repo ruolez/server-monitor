@@ -4,8 +4,11 @@ from datetime import timedelta
 
 from flask import Flask, jsonify, render_template, session
 
-from . import auth, db
+from . import auth, db, selfmon
 from .api import history as api_history
+from .api import maintenance as api_maintenance
+from .api import metrics as api_metrics
+from .api import public as api_public
 from .api import recipients as api_recipients
 from .api import servers as api_servers
 from .api import settings as api_settings
@@ -42,15 +45,33 @@ def create_app() -> Flask:
     app.register_blueprint(api_settings.bp)
     app.register_blueprint(api_status.bp)
     app.register_blueprint(api_history.bp)
+    app.register_blueprint(api_maintenance.bp)
+    app.register_blueprint(api_metrics.bp)
+    app.register_blueprint(api_public.bp)
 
     @app.get("/health")
     def health():
         try:
             with db.cursor() as cur:
                 cur.execute("SELECT 1")
-            return jsonify(status="ok")
         except Exception as exc:  # noqa: BLE001
-            return jsonify(status="error", error=str(exc)), 503
+            return jsonify(status="error", db="error", error=str(exc)), 503
+        sched = selfmon.heartbeat_status()
+        selfmon.maybe_alert(sched)
+        # Scheduler staleness is reported as payload but stays HTTP 200: a 503
+        # would flip the web container unhealthy and deadlock cold starts once
+        # scheduler/nginx depend_on web:service_healthy (the scheduler can't
+        # have beaten before it is allowed to start).
+        status = "degraded" if sched["stale"] else "ok"
+        return jsonify(status=status, db="ok", scheduler=sched)
+
+    @app.get("/status")
+    def public_status_page():
+        # Read-only LAN status page; unauthenticated by design, gated by the
+        # settings toggle (default off). base.html hides the nav when
+        # username is falsy.
+        api_public.require_public_enabled()
+        return render_template("status_public.html", page="status", username=None)
 
     @app.get("/")
     @auth.login_required

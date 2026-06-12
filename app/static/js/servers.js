@@ -78,6 +78,8 @@
     form.elements.interval_seconds.value = 60;
     form.elements.timeout_seconds.value = 5;
     form.elements.failure_threshold.value = 3;
+    form.elements.recovery_threshold.value = 1;
+    form.elements.latency_warn_checks.value = 3;
     setCheckTypeUi('icmp');
     titleEl.textContent = 'New server';
     deleteBtn.hidden = true;
@@ -95,6 +97,9 @@
     form.elements.interval_seconds.value = s.interval_seconds;
     form.elements.timeout_seconds.value = s.timeout_seconds;
     form.elements.failure_threshold.value = s.failure_threshold;
+    form.elements.recovery_threshold.value = s.recovery_threshold ?? 1;
+    form.elements.latency_warn_ms.value = s.latency_warn_ms ?? '';
+    form.elements.latency_warn_checks.value = s.latency_warn_checks ?? 3;
     form.elements.enabled.checked = !!s.enabled;
     setCheckTypeUi(s.check_type);
     titleEl.textContent = `Edit · ${s.name}`;
@@ -114,6 +119,9 @@
       interval_seconds: Number(form.elements.interval_seconds.value),
       timeout_seconds: Number(form.elements.timeout_seconds.value),
       failure_threshold: Number(form.elements.failure_threshold.value),
+      recovery_threshold: Number(form.elements.recovery_threshold.value),
+      latency_warn_ms: form.elements.latency_warn_ms.value ? Number(form.elements.latency_warn_ms.value) : null,
+      latency_warn_checks: Number(form.elements.latency_warn_checks.value),
       enabled: form.elements.enabled.checked,
       override_recipient_ids: $$('input[name="recipient"]:checked', recipientBoxes).map(i => Number(i.value)),
     };

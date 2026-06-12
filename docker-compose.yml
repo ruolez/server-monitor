@@ -1,8 +1,15 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:16-alpine
     container_name: server-monitor-db
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_DB: monitor
       POSTGRES_USER: monitor
@@ -19,6 +26,7 @@ services:
     build: ./app
     container_name: server-monitor-web
     restart: unless-stopped
+    logging: *default-logging
     command: gunicorn -w 2 -b 0.0.0.0:8000 --access-logfile - --error-logfile - "app.main:create_app()"
     environment:
       DATABASE_URL: postgresql://monitor:${POSTGRES_PASSWORD}@postgres:5432/monitor
@@ -30,11 +38,20 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # python:3.12-slim has no curl/wget; urlopen raises on non-2xx so no
+    # explicit status check is needed.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   scheduler:
     build: ./app
     container_name: server-monitor-scheduler
     restart: unless-stopped
+    logging: *default-logging
     command: python -m app.scheduler
     # Bridge network (same as web), NOT host networking. Probes reach LAN
     # hosts through NAT on Linux, and Docker enables unprivileged ICMP
@@ -47,22 +64,42 @@ services:
     environment:
       DATABASE_URL: postgresql://monitor:${POSTGRES_PASSWORD}@postgres:5432/monitor
       APP_SECRET_KEY: ${APP_SECRET_KEY}
+    stop_grace_period: 30s
     depends_on:
       postgres:
         condition: service_healthy
       web:
-        condition: service_started
+        condition: service_healthy
+    # Reads the heartbeat file the scheduler touches every 10s — tests "is
+    # this process's loop alive", which is exactly what a restart can fix.
+    # The DB heartbeat row is the cross-container signal /health alerts on.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,sys,time; st=os.stat('/tmp/scheduler-heartbeat'); sys.exit(0 if time.time()-st.st_mtime < 90 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
 
   nginx:
     image: nginx:alpine
     container_name: server-monitor-nginx
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "${HOST_PORT:-8765}:80"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
-      - web
+      web:
+        condition: service_healthy
+    # Probes through the proxy to /health — deliberately end-to-end: nginx
+    # reports unhealthy when web is unreachable too.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
 volumes:
   pg_data:

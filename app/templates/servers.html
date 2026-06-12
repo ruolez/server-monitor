@@ -42,6 +42,9 @@
         <label><span>Interval (s)</span><input name="interval_seconds" type="number" min="5" value="60"></label>
         <label><span>Timeout (s)</span><input name="timeout_seconds" type="number" min="1" value="5"></label>
         <label><span>Failures before DOWN</span><input name="failure_threshold" type="number" min="1" value="3"></label>
+        <label><span>Successes before UP</span><input name="recovery_threshold" type="number" min="1" value="1"></label>
+        <label><span>Latency warning (ms)</span><input name="latency_warn_ms" type="number" min="1" placeholder="blank = off"></label>
+        <label><span>Slow checks before alert</span><input name="latency_warn_checks" type="number" min="1" value="3"></label>
         <label class="checkbox col-span-2"><input type="checkbox" name="enabled" checked><span>Enabled</span></label>
         <fieldset class="col-span-2">
           <legend>Recipient overrides</legend>

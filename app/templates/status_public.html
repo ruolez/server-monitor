@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Status — Server Monitor{% endblock %}
+{% block heading %}Service status{% endblock %}
+{% block topbar_extra %}
+  <span class="topbar-meta"><span class="pulse-dot"></span> Live · 10s</span>
+{% endblock %}
+{% block content %}
+  <div id="publicRows" class="card public-status"></div>
+  <div id="publicEmpty" class="empty-state" hidden>
+    <h2>No services monitored</h2>
+  </div>
+{% endblock %}
+{% block scripts %}
+  <script src="{{ url_for('static', filename='js/status_public.js') }}"></script>
+{% endblock %}

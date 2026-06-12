@@ -97,5 +97,28 @@ function updateSummaryChip(summary) {
 function showModal(el)  { el.hidden = false;  document.body.style.overflow = 'hidden'; }
 function hideModal(el)  { el.hidden = true;   document.body.style.overflow = ''; }
 
+// Status-page style daily uptime bars: one span per calendar day, oldest on
+// the left. `days` is [{day: 'YYYY-MM-DD', uptime_pct, checks}] (sparse —
+// missing days render gray), `totalDays` pads the strip to a fixed width.
+function renderUptimeBars(days, totalDays) {
+  const byDay = new Map((days || []).map(d => [d.day, d]));
+  const spans = [];
+  const today = new Date();
+  for (let i = totalDays - 1; i >= 0; i--) {
+    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const row = byDay.get(iso);
+    let cls = 'u-none';
+    let tip = `${iso} · no data`;
+    if (row) {
+      cls = row.uptime_pct >= 99.9 ? 'u-full' : row.uptime_pct >= 97 ? 'u-high' : 'u-low';
+      tip = `${iso} · ${row.uptime_pct}% · ${row.checks} checks`;
+    }
+    spans.push(`<span class="ubar ${cls}" title="${escapeHtml(tip)}"></span>`);
+  }
+  return `<div class="ubars">${spans.join('')}</div>`;
+}
+
 window.SM = { $, $$, api, toast, fmtRelative, fmtDuration, fmtTime, escapeHtml,
-              statusPill, renderSparkline, updateSummaryChip, showModal, hideModal };
+              statusPill, renderSparkline, updateSummaryChip, showModal, hideModal,
+              renderUptimeBars };

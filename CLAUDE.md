@@ -20,12 +20,10 @@ docker compose down -v             # nuke everything including DB
 # Frontend changes (CSS, JS, HTML) are LIVE — app/static and app/templates
 # are bind-mounted into the web container. Just hard-refresh the browser.
 
-# Python changes — restart the affected container
-docker compose restart web         # for Flask routes / API / templates engine
-docker compose restart scheduler   # for checker.py / alerting.py / checks/
-
-# Image rebuild needed only when requirements.txt or Dockerfile changes
-docker compose up -d --build
+# Python changes — REBUILD the affected container. The .py code is baked
+# into the image (only static/templates are bind-mounted), so a bare
+# `docker compose restart` runs the OLD code.
+docker compose up -d --build web scheduler
 ```
 
 ### Logs (most useful debugging tool)

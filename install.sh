@@ -21,7 +21,9 @@ set -euo pipefail
 REPO_URL="https://github.com/ruolez/server-monitor.git"
 INSTALL_DIR="/opt/server-monitor"
 DEFAULT_PORT="8765"
-BACKUP_KEEP=10
+BACKUP_KEEP=14
+BACKUP_CRON_FILE="/etc/cron.d/server-monitor-backup"
+BACKUP_CRON_LOG="/var/log/server-monitor-backup.log"
 
 # ---------------------------- ui ---------------------------------------------
 
@@ -157,6 +159,44 @@ remove_legacy_sysctl() {
         rm -f "$SYSCTL_FILE"
         info "Removed legacy $SYSCTL_FILE (no longer needed; scheduler uses bridge networking)."
     fi
+}
+
+# ---------------------------- db backup --------------------------------------
+
+do_db_backup() {
+    mkdir -p "$INSTALL_DIR/backups"
+    chmod 700 "$INSTALL_DIR/backups"
+    local stamp; stamp="$(date +%Y%m%d-%H%M%S)"
+    local backup_file="$INSTALL_DIR/backups/db-$stamp.sql.gz"
+    if ( cd "$INSTALL_DIR" && docker compose ps --status running 2>/dev/null | grep -q server-monitor-db ); then
+        ( cd "$INSTALL_DIR" \
+          && docker compose exec -T postgres pg_dump -U monitor monitor \
+          | gzip > "$backup_file" )
+        ok "DB backup → $backup_file ($(du -h "$backup_file" | cut -f1))"
+    else
+        warn "Postgres container not running — skipping DB backup."
+        rm -f "$backup_file"
+    fi
+
+    # Trim to last $BACKUP_KEEP files
+    local to_delete
+    to_delete="$(ls -1t "$INSTALL_DIR"/backups/db-*.sql.gz 2>/dev/null | tail -n +$((BACKUP_KEEP+1)) || true)"
+    if [ -n "$to_delete" ]; then
+        echo "$to_delete" | xargs -r rm -f --
+        info "Pruned backups older than the most recent $BACKUP_KEEP."
+    fi
+}
+
+install_backup_cron() {
+    # Nightly pg_dump at 02:17 — finishes well before the app's own 03:00 UTC
+    # retention prune. Truncating '>' keeps the log to the latest run only.
+    cat > "$BACKUP_CRON_FILE" <<EOF
+SHELL=/bin/bash
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+17 2 * * * root $INSTALL_DIR/install.sh backup > $BACKUP_CRON_LOG 2>&1
+EOF
+    chmod 644 "$BACKUP_CRON_FILE"
+    info "Nightly DB backup cron installed at $BACKUP_CRON_FILE (02:17, keeps last $BACKUP_KEEP)."
 }
 
 # ---------------------------- repo handling ----------------------------------
@@ -301,6 +341,7 @@ action_install() {
     install_docker_if_missing
     remove_legacy_sysctl
     ensure_repo_present
+    install_backup_cron
 
     local port="$DEFAULT_PORT"
     local need_env=1
@@ -357,27 +398,7 @@ action_update() {
         fi
 
         info "Backing up the database before update ..."
-        mkdir -p "$INSTALL_DIR/backups"
-        chmod 700 "$INSTALL_DIR/backups"
-        local stamp; stamp="$(date +%Y%m%d-%H%M%S)"
-        local backup_file="$INSTALL_DIR/backups/db-$stamp.sql.gz"
-        if ( cd "$INSTALL_DIR" && docker compose ps --status running 2>/dev/null | grep -q server-monitor-db ); then
-            ( cd "$INSTALL_DIR" \
-              && docker compose exec -T postgres pg_dump -U monitor monitor \
-              | gzip > "$backup_file" )
-            ok "DB backup → $backup_file ($(du -h "$backup_file" | cut -f1))"
-        else
-            warn "Postgres container not running — skipping DB backup."
-            rm -f "$backup_file"
-        fi
-
-        # Trim to last $BACKUP_KEEP files
-        local to_delete
-        to_delete="$(ls -1t "$INSTALL_DIR"/backups/db-*.sql.gz 2>/dev/null | tail -n +$((BACKUP_KEEP+1)) || true)"
-        if [ -n "$to_delete" ]; then
-            echo "$to_delete" | xargs -r rm -f --
-            info "Pruned backups older than the most recent $BACKUP_KEEP."
-        fi
+        do_db_backup
 
         info "Pulling latest code from origin/main ..."
         git -C "$INSTALL_DIR" fetch --prune origin
@@ -398,6 +419,7 @@ action_update() {
 
     # ---- post stage: runs from the freshly-pulled script -------------------
     remove_legacy_sysctl
+    install_backup_cron
 
     local port
     port="$(grep -E '^HOST_PORT=' "$INSTALL_DIR/.env" 2>/dev/null | tail -1 | cut -d= -f2- || true)"
@@ -417,6 +439,13 @@ action_update() {
 
     ok "Update complete."
     ( cd "$INSTALL_DIR" && docker compose ps )
+}
+
+action_backup() {
+    require_root
+    [ -f "$INSTALL_DIR/docker-compose.yml" ] || die "No install found at $INSTALL_DIR. Run install first."
+    has_cmd docker && docker compose version >/dev/null 2>&1 || die "Docker is required."
+    do_db_backup
 }
 
 action_status() {
@@ -479,6 +508,7 @@ EOF
     fi
 
     remove_legacy_sysctl
+    rm -f "$BACKUP_CRON_FILE" "$BACKUP_CRON_LOG"
 
     if has_cmd docker && prompt_yes_no "Also uninstall Docker Engine itself?" "n"; then
         info "Removing Docker packages ..."
@@ -526,7 +556,7 @@ MENU
 
 usage() {
     cat <<USAGE
-Usage: $0 [install|update|status|remove]
+Usage: $0 [install|update|status|backup|remove]
 
 With no argument, an interactive menu is shown.
 Run as root (or via sudo) for install / update / remove.
@@ -544,6 +574,7 @@ main() {
         install) action_install ;;
         update)  action_update ;;
         status)  action_status ;;
+        backup)  action_backup ;;
         remove)  action_remove ;;
         ""|menu) show_menu ;;
         -h|--help|help) usage ;;

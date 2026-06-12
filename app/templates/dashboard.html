@@ -2,15 +2,54 @@
 {% block title %}Dashboard — Server Monitor{% endblock %}
 {% block heading %}Dashboard{% endblock %}
 {% block topbar_extra %}
-  <span class="topbar-meta"><span class="pulse-dot"></span> Live · 5s</span>
+  <span class="topbar-meta"><span class="pulse-dot"></span> Live · 3s</span>
+{% endblock %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/uplot/uPlot.min.css') }}">
 {% endblock %}
 {% block content %}
+  <div id="schedulerWarning" class="scheduler-warning" hidden>
+    ⚠ <b>Scheduler is not running</b> — checks and alerts are stopped.
+    Last heartbeat: <span id="schedulerWarningAge">—</span> ago.
+  </div>
   <div id="cards" class="card-grid"></div>
   <div id="empty" class="empty-state" hidden>
     <h2>No servers yet</h2>
     <p>Add one on the <a href="{{ url_for('servers_page') }}">Servers</a> page to start monitoring.</p>
   </div>
+
+  <div id="detailModal" class="modal" hidden>
+    <div class="modal-card modal-wide">
+      <div class="modal-head">
+        <div>
+          <h2 id="detailTitle">Server</h2>
+          <div class="server-target" id="detailTarget"></div>
+        </div>
+        <div class="detail-head-actions">
+          <span id="detailPill"></span>
+          <button type="button" class="btn btn-ghost" id="detailCheckNow">↻ Check now</button>
+          <button type="button" class="btn-icon" id="detailClose" aria-label="Close">×</button>
+        </div>
+      </div>
+      <div class="detail-body">
+        <div class="range-tabs" id="rangeTabs">
+          <button type="button" data-range="1h">1h</button>
+          <button type="button" data-range="24h" class="is-active">24h</button>
+          <button type="button" data-range="7d">7d</button>
+          <button type="button" data-range="30d">30d</button>
+        </div>
+        <div class="stat-strip" id="detailStats"></div>
+        <div class="chart-box">
+          <div id="latencyChart"></div>
+          <div id="bucketStrip"></div>
+        </div>
+        <h3 class="detail-subtitle">Daily uptime — last 90 days</h3>
+        <div id="detailUptime"></div>
+      </div>
+    </div>
+  </div>
 {% endblock %}
 {% block scripts %}
+  <script src="{{ url_for('static', filename='vendor/uplot/uPlot.iife.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 {% endblock %}

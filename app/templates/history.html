@@ -5,6 +5,18 @@
   <select id="serverFilter" class="select-inline"><option value="">All servers</option></select>
 {% endblock %}
 {% block content %}
+  <div class="card" style="margin-bottom: 18px;">
+    <div class="uptime-head">
+      <h2 class="card-title" style="margin:0">Uptime</h2>
+      <div class="range-tabs" id="uptimeTabs">
+        <button type="button" data-days="30" class="is-active">30d</button>
+        <button type="button" data-days="90">90d</button>
+      </div>
+    </div>
+    <div id="uptimeRows"></div>
+    <div id="uptimeEmpty" class="muted" hidden>No check data yet.</div>
+  </div>
+
   <div class="history-grid">
     <div class="card">
       <h2 class="card-title">Outage timeline</h2>

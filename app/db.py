@@ -74,6 +74,15 @@ CREATE TABLE IF NOT EXISTS servers (
 );
 CREATE INDEX IF NOT EXISTS servers_enabled_idx ON servers (enabled, last_checked_at);
 
+ALTER TABLE servers ADD COLUMN IF NOT EXISTS recovery_threshold    INTEGER NOT NULL DEFAULT 1 CHECK (recovery_threshold >= 1);
+ALTER TABLE servers ADD COLUMN IF NOT EXISTS consecutive_successes INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE servers ADD COLUMN IF NOT EXISTS is_flapping           BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE servers ADD COLUMN IF NOT EXISTS flapping_since        TIMESTAMPTZ;
+ALTER TABLE servers ADD COLUMN IF NOT EXISTS latency_warn_ms       INTEGER;
+ALTER TABLE servers ADD COLUMN IF NOT EXISTS latency_warn_checks   INTEGER NOT NULL DEFAULT 3 CHECK (latency_warn_checks >= 1);
+ALTER TABLE servers ADD COLUMN IF NOT EXISTS consecutive_slow      INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE servers ADD COLUMN IF NOT EXISTS degraded_since        TIMESTAMPTZ;
+
 CREATE TABLE IF NOT EXISTS recipients (
     id          SERIAL PRIMARY KEY,
     email       VARCHAR(255) UNIQUE NOT NULL,
@@ -116,6 +125,18 @@ CREATE TABLE IF NOT EXISTS outage_events (
 CREATE INDEX IF NOT EXISTS outage_events_server_idx ON outage_events (server_id, started_at DESC);
 CREATE INDEX IF NOT EXISTS outage_events_open_idx   ON outage_events (server_id) WHERE ended_at IS NULL;
 
+ALTER TABLE outage_events ADD COLUMN IF NOT EXISTS alerts_suppressed BOOLEAN NOT NULL DEFAULT FALSE;
+
+CREATE TABLE IF NOT EXISTS maintenance_windows (
+    id          SERIAL PRIMARY KEY,
+    server_id   INTEGER REFERENCES servers(id) ON DELETE CASCADE,
+    starts_at   TIMESTAMPTZ NOT NULL,
+    ends_at     TIMESTAMPTZ NOT NULL CHECK (ends_at > starts_at),
+    note        VARCHAR(255),
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS maintenance_windows_active_idx ON maintenance_windows (starts_at, ends_at);
+
 CREATE TABLE IF NOT EXISTS app_settings (
     id                              INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
     smtp_host                       VARCHAR(255),
@@ -137,6 +158,33 @@ ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS daily_report_enabled      BOOL
 ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS daily_report_time         TIME        NOT NULL DEFAULT '07:00';
 ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS daily_report_timezone     VARCHAR(64) NOT NULL DEFAULT 'America/Chicago';
 ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS daily_report_last_sent_on DATE;
+
+ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS scheduler_heartbeat_at  TIMESTAMPTZ;
+ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS scheduler_alert_sent_at TIMESTAMPTZ;
+
+ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS flap_window_minutes INTEGER NOT NULL DEFAULT 30 CHECK (flap_window_minutes >= 5);
+ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS flap_threshold      INTEGER NOT NULL DEFAULT 3  CHECK (flap_threshold >= 2);
+
+ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS public_status_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+
+CREATE TABLE IF NOT EXISTS email_outbox (
+    id              BIGSERIAL PRIMARY KEY,
+    server_id       INTEGER REFERENCES servers(id) ON DELETE CASCADE,
+    kind            VARCHAR(16) NOT NULL,
+    recipients      TEXT[] NOT NULL,
+    subject         TEXT NOT NULL,
+    body_html       TEXT NOT NULL,
+    body_text       TEXT NOT NULL,
+    status          VARCHAR(10) NOT NULL DEFAULT 'pending'
+                    CHECK (status IN ('pending','sent','failed','cancelled')),
+    attempts        INTEGER NOT NULL DEFAULT 0,
+    next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_error      TEXT,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    sent_at         TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS email_outbox_pending_idx
+    ON email_outbox (next_attempt_at) WHERE status = 'pending';
 
 CREATE TABLE IF NOT EXISTS audit_log (
     id          BIGSERIAL PRIMARY KEY,

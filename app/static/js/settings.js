@@ -1,6 +1,6 @@
 'use strict';
 (() => {
-  const { $, api, toast, showModal, hideModal } = window.SM;
+  const { $, api, toast, showModal, hideModal, escapeHtml, fmtTime } = window.SM;
 
   const smtpForm    = $('#smtpForm');
   const policyForm  = $('#policyForm');
@@ -23,8 +23,8 @@
   async function load() {
     const data = await api('/api/settings');
     fill(smtpForm, data, ['smtp_host','smtp_port','smtp_username','smtp_from_address','smtp_from_name','smtp_use_starttls']);
-    fill(policyForm, data, ['reminder_interval_minutes','retention_days','default_check_interval_seconds']);
-    fill(reportForm, data, ['daily_report_enabled','daily_report_time','daily_report_timezone']);
+    fill(policyForm, data, ['reminder_interval_minutes','retention_days','default_check_interval_seconds','flap_window_minutes','flap_threshold']);
+    fill(reportForm, data, ['daily_report_enabled','daily_report_time','daily_report_timezone','public_status_enabled']);
     passwordState.textContent = data.smtp_password_set ? '(stored — leave blank to keep)' : '(not yet set)';
     reportLastSent.hidden = !data.daily_report_last_sent_on;
     if (data.daily_report_last_sent_on) {
@@ -60,6 +60,8 @@
       reminder_interval_minutes:      Number(policyForm.elements.reminder_interval_minutes.value),
       retention_days:                 Number(policyForm.elements.retention_days.value),
       default_check_interval_seconds: Number(policyForm.elements.default_check_interval_seconds.value),
+      flap_window_minutes:            Number(policyForm.elements.flap_window_minutes.value),
+      flap_threshold:                 Number(policyForm.elements.flap_threshold.value),
     };
     try {
       await api('/api/settings', { method: 'PUT', body: payload });
@@ -75,6 +77,7 @@
       daily_report_enabled:  reportForm.elements.daily_report_enabled.checked,
       daily_report_time:     reportForm.elements.daily_report_time.value,
       daily_report_timezone: reportForm.elements.daily_report_timezone.value,
+      public_status_enabled: reportForm.elements.public_status_enabled.checked,
     };
     try {
       await api('/api/settings', { method: 'PUT', body: payload });
@@ -119,6 +122,74 @@
     }
   });
 
+  // ---- maintenance windows ----
+  const maintList = $('#maintList');
+  const maintForm = $('#maintForm');
+
+  async function loadMaintServers() {
+    const servers = await api('/api/servers');
+    const sel = maintForm.elements.server_id;
+    for (const s of servers) {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name;
+      sel.appendChild(opt);
+    }
+  }
+
+  async function loadMaintWindows() {
+    const windows = await api('/api/maintenance');
+    if (!windows.length) {
+      maintList.innerHTML = '<p class="hint">No maintenance windows scheduled.</p>';
+      return;
+    }
+    maintList.innerHTML = windows.map(w => `
+      <div class="maint-item ${w.active ? 'is-active' : ''}">
+        <div>
+          <b>${escapeHtml(w.server_name || 'All servers')}</b>
+          ${w.active ? '<span class="status-pill pill-maint"><span class="dot"></span>ACTIVE</span>' : ''}
+          <div class="hint" style="margin:2px 0 0">
+            ${fmtTime(w.starts_at)} → ${fmtTime(w.ends_at)}${w.note ? ' · ' + escapeHtml(w.note) : ''}
+          </div>
+        </div>
+        <button type="button" class="btn-icon" data-del="${w.id}" title="Delete window">×</button>
+      </div>
+    `).join('');
+  }
+
+  maintList.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-del]');
+    if (!btn) return;
+    try {
+      await api(`/api/maintenance/${btn.dataset.del}`, { method: 'DELETE' });
+      toast('Maintenance window deleted', 'success');
+      loadMaintWindows();
+    } catch (err) {
+      toast(err.message || 'Delete failed', 'error');
+    }
+  });
+
+  maintForm.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const starts = maintForm.elements.starts_at.value;
+    const ends   = maintForm.elements.ends_at.value;
+    if (!starts || !ends) return;
+    const payload = {
+      server_id: maintForm.elements.server_id.value || null,
+      starts_at: new Date(starts).toISOString(),
+      ends_at:   new Date(ends).toISOString(),
+      note:      maintForm.elements.note.value.trim(),
+    };
+    try {
+      await api('/api/maintenance', { method: 'POST', body: payload });
+      maintForm.reset();
+      toast('Maintenance window added', 'success');
+      loadMaintWindows();
+    } catch (err) {
+      toast(err.message || 'Save failed', 'error');
+    }
+  });
+
   $('#testSmtpBtn').addEventListener('click', () => { testForm.reset(); showModal(testModal); });
   $('#testSmtpClose').addEventListener('click', () => hideModal(testModal));
   $('#testSmtpCancel').addEventListener('click', () => hideModal(testModal));
@@ -137,4 +208,6 @@
   });
 
   load();
+  loadMaintServers().catch(() => {});
+  loadMaintWindows().catch(() => {});
 })();
