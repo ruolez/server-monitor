@@ -1,6 +1,9 @@
+from datetime import date, time
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
 from flask import Blueprint, jsonify, request
 
-from .. import auth, crypto, db, mailer
+from .. import auth, crypto, db, mailer, reports
 
 bp = Blueprint("api_settings", __name__, url_prefix="/api/settings")
 
@@ -9,6 +12,11 @@ def _public_settings(row: dict) -> dict:
     out = dict(row)
     has_password = bool(out.pop("smtp_password_encrypted", None))
     out["smtp_password_set"] = has_password
+    # Flask's JSON provider can't serialize time, and renders date as an HTTP date.
+    if isinstance(out.get("daily_report_time"), time):
+        out["daily_report_time"] = out["daily_report_time"].strftime("%H:%M")
+    if isinstance(out.get("daily_report_last_sent_on"), date):
+        out["daily_report_last_sent_on"] = out["daily_report_last_sent_on"].isoformat()
     return out
 
 
@@ -76,6 +84,23 @@ def update_settings():
         except (TypeError, ValueError):
             return jsonify(error="default_check_interval_seconds must be >= 5"), 400
 
+    if "daily_report_enabled" in body:
+        fields["daily_report_enabled"] = bool(body["daily_report_enabled"])
+
+    if "daily_report_time" in body:
+        try:
+            fields["daily_report_time"] = time.fromisoformat(str(body["daily_report_time"]))
+        except ValueError:
+            return jsonify(error="daily_report_time must be HH:MM"), 400
+
+    if "daily_report_timezone" in body:
+        tz_name = (body["daily_report_timezone"] or "").strip()
+        try:
+            ZoneInfo(tz_name)
+        except (ZoneInfoNotFoundError, ValueError, KeyError):
+            return jsonify(error="daily_report_timezone must be a valid IANA timezone"), 400
+        fields["daily_report_timezone"] = tz_name
+
     # Password is write-only. Only update if a new value is supplied.
     if body.get("smtp_password"):
         fields["smtp_password_encrypted"] = crypto.encrypt(body["smtp_password"])
@@ -108,3 +133,14 @@ def test_smtp():
     except mailer.MailerError as exc:
         return jsonify(error=str(exc)), 400
     return jsonify(sent=True, to=to)
+
+
+@bp.post("/send-daily-report")
+@auth.login_required
+def send_daily_report_now():
+    """Manual trigger. Doesn't touch daily_report_last_sent_on, so the scheduled send still fires."""
+    try:
+        reports.send_daily_report()
+    except mailer.MailerError as exc:
+        return jsonify(error=str(exc)), 400
+    return jsonify(sent=True)

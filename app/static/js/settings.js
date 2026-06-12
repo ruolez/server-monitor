@@ -4,7 +4,9 @@
 
   const smtpForm    = $('#smtpForm');
   const policyForm  = $('#policyForm');
+  const reportForm  = $('#reportForm');
   const passwordState = $('#smtpPasswordState');
+  const reportLastSent = $('#reportLastSent');
 
   const testModal     = $('#testSmtpModal');
   const testForm      = $('#testSmtpForm');
@@ -22,7 +24,12 @@
     const data = await api('/api/settings');
     fill(smtpForm, data, ['smtp_host','smtp_port','smtp_username','smtp_from_address','smtp_from_name','smtp_use_starttls']);
     fill(policyForm, data, ['reminder_interval_minutes','retention_days','default_check_interval_seconds']);
+    fill(reportForm, data, ['daily_report_enabled','daily_report_time','daily_report_timezone']);
     passwordState.textContent = data.smtp_password_set ? '(stored — leave blank to keep)' : '(not yet set)';
+    reportLastSent.hidden = !data.daily_report_last_sent_on;
+    if (data.daily_report_last_sent_on) {
+      reportLastSent.textContent = `Last scheduled report sent: ${data.daily_report_last_sent_on}`;
+    }
   }
 
   smtpForm.addEventListener('submit', async (ev) => {
@@ -59,6 +66,34 @@
       toast('Policy saved', 'success');
     } catch (err) {
       toast(err.message || 'Save failed', 'error');
+    }
+  });
+
+  reportForm.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const payload = {
+      daily_report_enabled:  reportForm.elements.daily_report_enabled.checked,
+      daily_report_time:     reportForm.elements.daily_report_time.value,
+      daily_report_timezone: reportForm.elements.daily_report_timezone.value,
+    };
+    try {
+      await api('/api/settings', { method: 'PUT', body: payload });
+      toast('Report settings saved', 'success');
+    } catch (err) {
+      toast(err.message || 'Save failed', 'error');
+    }
+  });
+
+  $('#sendReportBtn').addEventListener('click', async () => {
+    const btn = $('#sendReportBtn');
+    btn.disabled = true;
+    try {
+      await api('/api/settings/send-daily-report', { method: 'POST' });
+      toast('Daily report sent — check your inbox', 'success', 5000);
+    } catch (err) {
+      toast(err.message || 'Send failed', 'error', 6000);
+    } finally {
+      btn.disabled = false;
     }
   });
 

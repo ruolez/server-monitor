@@ -133,6 +133,11 @@ CREATE TABLE IF NOT EXISTS app_settings (
 
 INSERT INTO app_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
+ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS daily_report_enabled      BOOLEAN     NOT NULL DEFAULT FALSE;
+ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS daily_report_time         TIME        NOT NULL DEFAULT '07:00';
+ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS daily_report_timezone     VARCHAR(64) NOT NULL DEFAULT 'America/Chicago';
+ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS daily_report_last_sent_on DATE;
+
 CREATE TABLE IF NOT EXISTS audit_log (
     id          BIGSERIAL PRIMARY KEY,
     action      VARCHAR(64) NOT NULL,

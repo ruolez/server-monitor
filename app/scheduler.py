@@ -11,7 +11,7 @@ import time
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 
-from . import checker, db, retention
+from . import checker, db, reports, retention
 
 logging.basicConfig(
     level=os.environ.get("LOG_LEVEL", "INFO"),
@@ -49,6 +49,14 @@ def run_reminders() -> None:
         logger.exception("reminder pass failed")
 
 
+def run_daily_report() -> None:
+    try:
+        if reports.daily_report_pass():
+            logger.info("daily health report sent")
+    except Exception:  # noqa: BLE001
+        logger.exception("daily report pass failed")
+
+
 def run_retention() -> None:
     try:
         retention.prune_old_rows()
@@ -76,6 +84,7 @@ def main() -> None:
     scheduler = BlockingScheduler(timezone="UTC")
     scheduler.add_job(run_due_checks,  "interval", seconds=2,  id="due_checks", max_instances=1, coalesce=True)
     scheduler.add_job(run_reminders,   "interval", minutes=1,  id="reminders", max_instances=1, coalesce=True)
+    scheduler.add_job(run_daily_report, "interval", minutes=1, id="daily_report", max_instances=1, coalesce=True)
     scheduler.add_job(run_retention,   "cron", hour=3, minute=0, id="retention")
 
     def _shutdown(signum, _frame):

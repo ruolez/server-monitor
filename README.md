@@ -5,6 +5,7 @@ Self-hosted, Docker-Compose server monitoring with email alerts.
 - **ICMP ping** + **TCP port** checks on per-server intervals
 - **Gmail SMTP** (or any STARTTLS host) for alert delivery
 - **DOWN** / **UP recovery** / **periodic reminder** emails, with per-server recipient overrides
+- **Daily health report** email — per-server status, 24h uptime %, latency, outages
 - 90-day rolling history, sparkline uptime visualization
 - Single-admin login, dark observability dashboard
 
@@ -101,12 +102,13 @@ postgres:16 (volume pg_data)   │
 scheduler  (APScheduler) ───────┘
 ```
 
-The **scheduler** is a separate container so APScheduler isn't duplicated across gunicorn workers. It runs three jobs:
+The **scheduler** is a separate container so APScheduler isn't duplicated across gunicorn workers. It runs four jobs:
 
 | Job             | Cadence            | Purpose                                      |
 |-----------------|--------------------|----------------------------------------------|
 | Due checks      | every 2 s          | Picks servers whose `interval_seconds` elapsed and runs ICMP/TCP |
 | Reminders       | every 1 min        | Re-sends "still down" email after `reminder_interval_minutes` |
+| Daily report    | every 1 min (gate) | Sends the daily health report once per day at the configured local time |
 | Retention prune | daily 03:00 UTC    | Deletes `check_results` and `outage_events` older than `retention_days` (default 90) |
 
 ICMP runs unprivileged via `icmplib` — `docker-compose.yml` sets `net.ipv4.ping_group_range=0 2147483647` on the scheduler container so a non-root process can use ICMP datagram sockets. No `NET_RAW` capability needed.
@@ -125,6 +127,13 @@ unknown ─── 1st success ──► up
 ```
 
 When a server goes down, an `outage_events` row opens. It closes the moment a successful check arrives, with `duration_seconds` filled. Each transition emails the resolved recipients (per-server overrides if set, otherwise default recipients).
+
+## Daily health report
+
+An optional once-a-day summary email, configured in **Settings → Daily health report** (disabled by default). It goes to all **default** recipients and contains one row per enabled server: current status, uptime % over the last 24 hours, average latency, outage count, and total downtime.
+
+- **Send at / Timezone** — local wall-clock time (default `07:00 America/Chicago`). The scheduler checks every minute; if it was down at the configured time, the report sends late rather than never, and never more than once per day.
+- **Send report now** — fires the report immediately without affecting the daily schedule. Useful for verifying SMTP and previewing the layout.
 
 ## API reference
 
@@ -146,6 +155,7 @@ All endpoints require an authenticated session (cookie). 401 redirects HTML page
 | GET    | `/api/settings`                       | Read SMTP + policy (password never returned) |
 | PUT    | `/api/settings`                       | Update SMTP + policy |
 | POST   | `/api/settings/test-smtp`             | Send a test email |
+| POST   | `/api/settings/send-daily-report`     | Send the daily health report immediately |
 | GET    | `/api/history/outages`                | Outage timeline |
 | GET    | `/api/history/checks`                 | Recent check results |
 | GET    | `/health`                             | Liveness (checks DB) |

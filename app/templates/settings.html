@@ -37,6 +37,32 @@
         </div>
       </form>
     </section>
+    <section class="card">
+      <h2 class="card-title">Daily health report</h2>
+      <p class="hint">Emails a per-server summary (status, 24h uptime %, average latency, outages and downtime) to all <b>default</b> recipients once a day.</p>
+      <form id="reportForm" class="form-grid">
+        <label class="checkbox col-span-2"><input type="checkbox" name="daily_report_enabled"><span>Send a daily health report</span></label>
+        <label><span>Send at</span><input name="daily_report_time" type="time" value="07:00" required></label>
+        <label><span>Timezone</span>
+          <select name="daily_report_timezone">
+            <option value="America/Chicago">America/Chicago (Central)</option>
+            <option value="America/New_York">America/New_York (Eastern)</option>
+            <option value="America/Denver">America/Denver (Mountain)</option>
+            <option value="America/Los_Angeles">America/Los_Angeles (Pacific)</option>
+            <option value="UTC">UTC</option>
+            <option value="Europe/London">Europe/London</option>
+            <option value="Europe/Berlin">Europe/Berlin</option>
+            <option value="Asia/Tokyo">Asia/Tokyo</option>
+          </select>
+        </label>
+        <p class="hint col-span-2" id="reportLastSent" hidden></p>
+        <div class="col-span-2 form-actions">
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-ghost" id="sendReportBtn">Send report now</button>
+          <button type="submit" class="btn btn-primary">Save report settings</button>
+        </div>
+      </form>
+    </section>
   </div>
 
   <div id="testSmtpModal" class="modal" hidden>
