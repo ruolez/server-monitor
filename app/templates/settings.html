@@ -14,7 +14,7 @@
           <span>App password <em id="smtpPasswordState" class="hint-inline"></em></span>
           <input name="smtp_password" type="password" placeholder="leave blank to keep current" autocomplete="new-password">
         </label>
-        <label><span>From address <em class="hint-inline">(optional)</em></span><input name="smtp_from_address" placeholder="defaults to the username"></label>
+        <label><span>From address <em class="hint-inline">(optional, but must be a full email — needed if the username isn't one)</em></span><input name="smtp_from_address" placeholder="alerts@yourdomain.com"></label>
         <label><span>From name</span><input name="smtp_from_name" placeholder="Server Monitor"></label>
         <label class="checkbox col-span-2"><input type="checkbox" name="smtp_use_starttls" checked><span>Use STARTTLS (port 587)</span></label>
         <label class="checkbox col-span-2"><input type="checkbox" name="smtp_verify_cert" checked><span>Verify TLS certificate <em class="hint-inline">(uncheck to allow a self-signed certificate on your own mail server)</em></span></label>
