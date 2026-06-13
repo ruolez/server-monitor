@@ -9,12 +9,12 @@
       <form id="smtpForm" class="form-grid">
         <label><span>Host</span><input name="smtp_host" placeholder="smtp.gmail.com" required></label>
         <label><span>Port</span><input name="smtp_port" type="number" min="1" max="65535" value="587" required></label>
-        <label class="col-span-2"><span>Username</span><input name="smtp_username" type="email" placeholder="alerts@example.com" required></label>
+        <label class="col-span-2"><span>Username</span><input name="smtp_username" placeholder="SMTP username (often an email, but not required)" required></label>
         <label class="col-span-2">
           <span>App password <em id="smtpPasswordState" class="hint-inline"></em></span>
           <input name="smtp_password" type="password" placeholder="leave blank to keep current" autocomplete="new-password">
         </label>
-        <label><span>From address</span><input name="smtp_from_address" type="email" placeholder="alerts@example.com"></label>
+        <label><span>From address <em class="hint-inline">(optional)</em></span><input name="smtp_from_address" placeholder="defaults to the username"></label>
         <label><span>From name</span><input name="smtp_from_name" placeholder="Server Monitor"></label>
         <label class="checkbox col-span-2"><input type="checkbox" name="smtp_use_starttls" checked><span>Use STARTTLS (port 587)</span></label>
         <div class="col-span-2 form-actions">
