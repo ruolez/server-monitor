@@ -167,6 +167,8 @@ ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS flap_threshold      INTEGER NO
 
 ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS public_status_enabled BOOLEAN NOT NULL DEFAULT FALSE;
 
+ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS smtp_verify_cert BOOLEAN NOT NULL DEFAULT TRUE;
+
 CREATE TABLE IF NOT EXISTS email_outbox (
     id              BIGSERIAL PRIMARY KEY,
     server_id       INTEGER REFERENCES servers(id) ON DELETE CASCADE,

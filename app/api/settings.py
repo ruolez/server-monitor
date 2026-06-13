@@ -57,6 +57,9 @@ def update_settings():
     if "smtp_use_starttls" in body:
         fields["smtp_use_starttls"] = bool(body["smtp_use_starttls"])
 
+    if "smtp_verify_cert" in body:
+        fields["smtp_verify_cert"] = bool(body["smtp_verify_cert"])
+
     if "reminder_interval_minutes" in body:
         try:
             v = int(body["reminder_interval_minutes"])

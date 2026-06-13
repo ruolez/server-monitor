@@ -22,7 +22,7 @@
 
   async function load() {
     const data = await api('/api/settings');
-    fill(smtpForm, data, ['smtp_host','smtp_port','smtp_username','smtp_from_address','smtp_from_name','smtp_use_starttls']);
+    fill(smtpForm, data, ['smtp_host','smtp_port','smtp_username','smtp_from_address','smtp_from_name','smtp_use_starttls','smtp_verify_cert']);
     fill(policyForm, data, ['reminder_interval_minutes','retention_days','default_check_interval_seconds','flap_window_minutes','flap_threshold']);
     fill(reportForm, data, ['daily_report_enabled','daily_report_time','daily_report_timezone','public_status_enabled']);
     passwordState.textContent = data.smtp_password_set ? '(stored — leave blank to keep)' : '(not yet set)';
@@ -41,6 +41,7 @@
       smtp_from_address: smtpForm.elements.smtp_from_address.value.trim(),
       smtp_from_name:    smtpForm.elements.smtp_from_name.value.trim(),
       smtp_use_starttls: smtpForm.elements.smtp_use_starttls.checked,
+      smtp_verify_cert:  smtpForm.elements.smtp_verify_cert.checked,
     };
     const pw = smtpForm.elements.smtp_password.value;
     if (pw) payload.smtp_password = pw;

@@ -18,7 +18,8 @@ def _load_settings() -> dict:
         cur.execute(
             """
             SELECT smtp_host, smtp_port, smtp_username, smtp_password_encrypted,
-                   smtp_from_address, smtp_from_name, smtp_use_starttls
+                   smtp_from_address, smtp_from_name, smtp_use_starttls,
+                   smtp_verify_cert
             FROM app_settings WHERE id = 1
             """
         )
@@ -51,11 +52,18 @@ def send_email(to_addrs: list[str], subject: str, html: str, text: str) -> None:
     host = settings["smtp_host"]
     port = settings["smtp_port"] or 587
 
+    ctx = ssl.create_default_context()
+    if not settings.get("smtp_verify_cert", True):
+        # Trust a self-signed / internal-CA cert (operator opt-in). Encryption
+        # still happens; only the certificate chain/hostname check is skipped.
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
     try:
         with smtplib.SMTP(host, port, timeout=20) as smtp:
             smtp.ehlo()
             if settings.get("smtp_use_starttls", True):
-                smtp.starttls(context=ssl.create_default_context())
+                smtp.starttls(context=ctx)
                 smtp.ehlo()
             if settings.get("smtp_username"):
                 smtp.login(settings["smtp_username"], password)

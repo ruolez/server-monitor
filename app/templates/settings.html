@@ -17,6 +17,7 @@
         <label><span>From address <em class="hint-inline">(optional)</em></span><input name="smtp_from_address" placeholder="defaults to the username"></label>
         <label><span>From name</span><input name="smtp_from_name" placeholder="Server Monitor"></label>
         <label class="checkbox col-span-2"><input type="checkbox" name="smtp_use_starttls" checked><span>Use STARTTLS (port 587)</span></label>
+        <label class="checkbox col-span-2"><input type="checkbox" name="smtp_verify_cert" checked><span>Verify TLS certificate <em class="hint-inline">(uncheck to allow a self-signed certificate on your own mail server)</em></span></label>
         <div class="col-span-2 form-actions">
           <span class="spacer"></span>
           <button type="button" class="btn btn-ghost" id="testSmtpBtn">Send test email…</button>
