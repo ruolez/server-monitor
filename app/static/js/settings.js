@@ -190,7 +190,19 @@
     }
   });
 
-  $('#testSmtpBtn').addEventListener('click', () => { testForm.reset(); showModal(testModal); });
+  const testSend   = $('#testSmtpSend');
+  const testError  = $('#testSmtpError');
+  const testStatus = $('#testSmtpStatus');
+
+  function resetTestModal() {
+    testForm.reset();
+    testError.hidden = true;
+    testStatus.hidden = true;
+    testSend.disabled = false;
+    testSend.textContent = 'Send';
+  }
+
+  $('#testSmtpBtn').addEventListener('click', () => { resetTestModal(); showModal(testModal); });
   $('#testSmtpClose').addEventListener('click', () => hideModal(testModal));
   $('#testSmtpCancel').addEventListener('click', () => hideModal(testModal));
   testModal.addEventListener('click', (e) => { if (e.target === testModal) hideModal(testModal); });
@@ -198,12 +210,26 @@
   testForm.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const to = testForm.elements.to.value.trim();
+    // Immediate feedback: the send is synchronous and can block up to ~20s
+    // while connecting to SMTP, so disable the button and show progress.
+    testError.hidden = true;
+    testStatus.hidden = false;
+    testSend.disabled = true;
+    testSend.textContent = 'Sending…';
     try {
       await api('/api/settings/test-smtp', { method: 'POST', body: { to } });
       toast('Test email sent — check your inbox', 'success', 5000);
       hideModal(testModal);
     } catch (err) {
-      toast(err.message || 'Send failed', 'error', 6000);
+      // Surface the real SMTP error inline (and keep it visible) so the
+      // failure reason — wrong port, STARTTLS mismatch, auth rejected — is
+      // readable instead of flashing past in a toast.
+      testError.textContent = err.message || 'Send failed';
+      testError.hidden = false;
+    } finally {
+      testStatus.hidden = true;
+      testSend.disabled = false;
+      testSend.textContent = 'Send';
     }
   });
 

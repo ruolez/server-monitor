@@ -106,10 +106,12 @@
       <div class="modal-head"><h2>Send test email</h2><button class="btn-icon" id="testSmtpClose">×</button></div>
       <form id="testSmtpForm" class="form-grid">
         <label class="col-span-2"><span>Send a test message to</span><input name="to" type="email" required placeholder="you@example.com"></label>
+        <div class="col-span-2 alert alert-error" id="testSmtpError" hidden></div>
+        <p class="hint col-span-2" id="testSmtpStatus" hidden>Connecting to the SMTP server… this can take up to 20 seconds.</p>
         <div class="col-span-2 form-actions">
           <span class="spacer"></span>
           <button type="button" class="btn btn-ghost" id="testSmtpCancel">Cancel</button>
-          <button type="submit" class="btn btn-primary">Send</button>
+          <button type="submit" class="btn btn-primary" id="testSmtpSend">Send</button>
         </div>
       </form>
     </div>
