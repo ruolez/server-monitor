@@ -24,7 +24,7 @@ def get_pool() -> ConnectionPool:
                 _pool = ConnectionPool(
                     conninfo=_database_url(),
                     min_size=1,
-                    max_size=8,
+                    max_size=4,
                     kwargs={"row_factory": psycopg.rows.dict_row},
                 )
     return _pool

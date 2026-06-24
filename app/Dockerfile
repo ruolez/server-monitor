@@ -19,4 +19,4 @@ ENV PYTHONPATH=/srv
 
 EXPOSE 8000
 
-CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:8000", "app.main:create_app()"]
+CMD ["gunicorn", "-w", "2", "--max-requests", "1000", "--max-requests-jitter", "200", "-b", "0.0.0.0:8000", "app.main:create_app()"]

@@ -29,12 +29,20 @@ def prune_old_rows() -> dict:
         )
         outbox_deleted = cur.rowcount
 
+        cur.execute(
+            "DELETE FROM audit_log WHERE occurred_at < now() - (%s || ' days')::interval",
+            (days,),
+        )
+        audit_deleted = cur.rowcount
+
     logger.info(
-        "retention prune: removed %d check_results, %d outage_events older than %d days, %d outbox rows",
+        "retention prune: removed %d check_results, %d outage_events, %d audit_log "
+        "older than %d days, %d outbox rows",
         check_deleted,
         outage_deleted,
+        audit_deleted,
         days,
         outbox_deleted,
     )
     return {"check_results": check_deleted, "outage_events": outage_deleted,
-            "email_outbox": outbox_deleted, "days": days}
+            "email_outbox": outbox_deleted, "audit_log": audit_deleted, "days": days}

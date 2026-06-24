@@ -161,6 +161,34 @@ remove_legacy_sysctl() {
     fi
 }
 
+# ---------------------------- memory headroom --------------------------------
+
+# Linux fills free RAM with reclaimable page cache, so a busy box reads near
+# 100% even when healthy. A small swap file + low swappiness give the kernel
+# room to evict cleanly under pressure and keep it from over-committing.
+ensure_swap() {
+    if swapon --show 2>/dev/null | grep -q .; then
+        ok "Swap already configured."
+    else
+        info "No swap detected; creating a 2 GB swapfile for reclaim headroom..."
+        if fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048 status=none; then
+            chmod 600 /swapfile
+            mkswap /swapfile >/dev/null
+            swapon /swapfile
+            grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+            ok "2 GB swapfile active and persisted in /etc/fstab."
+        else
+            warn "Could not create /swapfile (continuing without swap)."
+        fi
+    fi
+
+    # Prefer reclaiming page cache over swapping app memory.
+    sysctl -w vm.swappiness=10 >/dev/null 2>&1 || true
+    if [ -d /etc/sysctl.d ]; then
+        echo 'vm.swappiness=10' > /etc/sysctl.d/99-server-monitor-swappiness.conf
+    fi
+}
+
 # ---------------------------- db backup --------------------------------------
 
 do_db_backup() {
@@ -340,6 +368,7 @@ action_install() {
     require_ubuntu
     install_docker_if_missing
     remove_legacy_sysctl
+    ensure_swap
     ensure_repo_present
     install_backup_cron
 
@@ -419,6 +448,7 @@ action_update() {
 
     # ---- post stage: runs from the freshly-pulled script -------------------
     remove_legacy_sysctl
+    ensure_swap
     install_backup_cron
 
     local port

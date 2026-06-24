@@ -63,6 +63,9 @@ None configured. `bash -n install.sh` and `python3 -m compileall app` for sanity
 
 ## Architecture: things that aren't obvious from a glance
 
+### Memory budget is fixed by design — and "100% RAM" on the host is usually page cache
+Each container has a hard `mem_limit` in `docker-compose.yml` (postgres 768m, web 512m, scheduler 384m, nginx 96m ≈ 1.7 GiB total), sized for a dedicated 4 GB VM and leaving ~2 GiB for OS page cache. Postgres is tuned with explicit `-c` flags in its `command:` (shared_buffers 256MB, work_mem 8MB, max_connections 30, etc.) so its footprint is predictable rather than auto-scaled. The web `gunicorn` runs `--max-requests 1000 --max-requests-jitter 200` so workers recycle and no slow leak accumulates over long uptimes — keep the flag set in both `docker-compose.yml` and `app/Dockerfile` CMD in sync. The DB pool is `max_size=4` (`app/db.py`), comfortably under `max_connections=30`. If you raise any of these, re-check the totals against the VM size. Note: a Proxmox/host panel showing the VM near or over 100% RAM is normally just Linux filling free memory with **reclaimable** page cache (`total − free` accounting) — install `qemu-guest-agent` and a small swap file (the installer's `ensure_swap` does this) so the host reports actual usage and can evict cleanly.
+
 ### Two containers, one image (`web` + `scheduler`)
 Both are built from `app/Dockerfile`. `web` runs `gunicorn -w 2 ... app.main:create_app()`. `scheduler` runs `python -m app.scheduler`. They share code but **never share process**. Why: gunicorn forks workers, so APScheduler running inside Flask would fire every job N times. The scheduler container is the single owner of all check execution and alert dispatch.
 

@@ -10,6 +10,19 @@ services:
     container_name: server-monitor-db
     restart: unless-stopped
     logging: *default-logging
+    # Pin Postgres' memory to a known budget (this VM is dedicated, 4 GB).
+    # These are sizing knobs only — query results/semantics are unchanged.
+    # effective_cache_size is a planner hint, not an allocation.
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c work_mem=8MB
+      -c maintenance_work_mem=64MB
+      -c max_connections=30
+      -c wal_buffers=8MB
+    mem_limit: 768m
+    mem_reservation: 460m
     environment:
       POSTGRES_DB: monitor
       POSTGRES_USER: monitor
@@ -27,7 +40,13 @@ services:
     container_name: server-monitor-web
     restart: unless-stopped
     logging: *default-logging
-    command: gunicorn -w 2 -b 0.0.0.0:8000 --access-logfile - --error-logfile - "app.main:create_app()"
+    # --max-requests recycles each worker after ~1000 requests (jitter avoids
+    # both recycling at once) so any slow leak can't accumulate over a long
+    # uptime. gunicorn spawns the replacement before retiring the old worker —
+    # no dropped requests.
+    command: gunicorn -w 2 --max-requests 1000 --max-requests-jitter 200 -b 0.0.0.0:8000 --access-logfile - --error-logfile - "app.main:create_app()"
+    mem_limit: 512m
+    mem_reservation: 300m
     environment:
       DATABASE_URL: postgresql://monitor:${POSTGRES_PASSWORD}@postgres:5432/monitor
       APP_SECRET_KEY: ${APP_SECRET_KEY}
@@ -53,6 +72,8 @@ services:
     restart: unless-stopped
     logging: *default-logging
     command: python -m app.scheduler
+    mem_limit: 384m
+    mem_reservation: 230m
     # Bridge network (same as web), NOT host networking. Probes reach LAN
     # hosts through NAT on Linux, and Docker enables unprivileged ICMP
     # (net.ipv4.ping_group_range) inside every container namespace it
@@ -85,6 +106,8 @@ services:
     container_name: server-monitor-nginx
     restart: unless-stopped
     logging: *default-logging
+    mem_limit: 96m
+    mem_reservation: 48m
     ports:
       - "${HOST_PORT:-8765}:80"
     volumes:
