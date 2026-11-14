@@ -198,8 +198,21 @@ CREATE TABLE IF NOT EXISTS audit_log (
 """
 
 
+BOOT_LOCK_ID = 7305001
+
+
+@contextmanager
+def boot_cursor():
+    """Every gunicorn worker bootstraps on start, and they start together.
+    The DDL takes table locks in an order that deadlocks against a second
+    worker (and against any boot-time data fix), which kills the worker and
+    with it the container. This transaction-scoped advisory lock makes the
+    workers take turns."""
+    with cursor(commit=True) as cur:
+        cur.execute("SELECT pg_advisory_xact_lock(%s)", (BOOT_LOCK_ID,))
+        yield cur
+
+
 def init_schema() -> None:
-    with conn() as c:
-        with c.cursor() as cur:
-            cur.execute(SCHEMA_SQL)
-        c.commit()
+    with boot_cursor() as cur:
+        cur.execute(SCHEMA_SQL)

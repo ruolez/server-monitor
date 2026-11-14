@@ -29,7 +29,7 @@ def create_app() -> Flask:
 
     if os.environ.get("RUN_MIGRATIONS", "1") == "1":
         db.init_schema()
-        with db.cursor(commit=True) as cur:
+        with db.boot_cursor() as cur:
             cur.execute("SELECT id FROM servers WHERE NOT enabled")
             checker.reset_monitoring_state(cur, [r["id"] for r in cur.fetchall()])
         bootstrap_password = auth.ensure_bootstrap_admin()
