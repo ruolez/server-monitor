@@ -56,7 +56,13 @@ def _send(server: dict, kind: str, subject: str, html: str, text: str) -> bool:
     Central maintenance gate: every per-server kind is silenced during a
     window EXCEPT recovery, whose suppression follows the outage's own
     alerts_suppressed flag (an outage that alerted before the window must
-    still close its loop with a RECOVERY email)."""
+    still close its loop with a RECOVERY email).
+
+    A disabled server never emails, whatever path reached here (minute
+    passes, "check now", a check that was in flight while it was disabled)."""
+    if not server["enabled"]:
+        logger.info("suppressing %s alert for %s (server disabled)", kind, server["name"])
+        return False
     if kind != "recovery" and in_maintenance(server["id"]):
         logger.info("suppressing %s alert for %s (maintenance window)", kind, server["name"])
         return False

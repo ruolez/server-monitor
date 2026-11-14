@@ -21,7 +21,7 @@
   function rowHtml(s) {
     return `
       <tr data-id="${s.id}">
-        <td>${statusPill(s.current_status)}</td>
+        <td>${statusPill(s.enabled ? s.current_status : 'disabled')}</td>
         <td><b>${escapeHtml(s.name)}</b></td>
         <td><span class="num">${escapeHtml(targetText(s))}</span></td>
         <td>${s.check_type.toUpperCase()}</td>

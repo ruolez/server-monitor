@@ -269,6 +269,7 @@ def flap_clear_pass() -> int:
             """
             SELECT s.* FROM servers s
             WHERE s.is_flapping
+              AND s.enabled
               AND s.current_status = 'up'
               AND NOT EXISTS (
                   SELECT 1 FROM outage_events o
@@ -304,6 +305,45 @@ def flap_clear_pass() -> int:
     return cleared
 
 
+def reset_monitoring_state(cur, server_ids: list[int]) -> None:
+    """A server that is not being checked has no live state. Close its open
+    outage (nothing would ever recover it, so reminder_pass would email
+    [STILL DOWN] forever), drop its queued alerts and return it to 'unknown'
+    so it starts clean when monitoring resumes. servers.updated_at is the
+    moment monitoring stopped: every check and every edit stamps it."""
+    if not server_ids:
+        return
+    cur.execute(
+        """
+        UPDATE outage_events o
+        SET ended_at = GREATEST(o.started_at, s.updated_at),
+            duration_seconds = EXTRACT(EPOCH FROM (
+                GREATEST(o.started_at, s.updated_at) - o.started_at))::int
+        FROM servers s
+        WHERE s.id = o.server_id AND o.ended_at IS NULL AND o.server_id = ANY(%s)
+        """,
+        (server_ids,),
+    )
+    cur.execute(
+        """
+        UPDATE servers
+        SET current_status = 'unknown',
+            consecutive_failures = 0,
+            consecutive_successes = 0,
+            consecutive_slow = 0,
+            degraded_since = NULL,
+            is_flapping = FALSE,
+            flapping_since = NULL
+        WHERE id = ANY(%s)
+        """,
+        (server_ids,),
+    )
+    cur.execute(
+        "UPDATE email_outbox SET status = 'cancelled' WHERE server_id = ANY(%s) AND status = 'pending'",
+        (server_ids,),
+    )
+
+
 def fetch_due_servers() -> list[dict]:
     with db.cursor() as cur:
         cur.execute(
@@ -331,6 +371,7 @@ def maintenance_exit_pass() -> int:
             FROM outage_events o
             JOIN servers s ON s.id = o.server_id
             WHERE o.ended_at IS NULL AND o.alerts_suppressed
+              AND s.enabled
               AND NOT s.is_flapping
             """
         )
@@ -374,6 +415,7 @@ def reminder_pass() -> int:
             FROM outage_events o
             JOIN servers s ON s.id = o.server_id
             WHERE o.ended_at IS NULL
+              AND s.enabled
               AND NOT o.alerts_suppressed
               AND o.down_alert_sent_at IS NOT NULL
               AND (

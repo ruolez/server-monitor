@@ -85,6 +85,9 @@ Both `web` and `scheduler` use `DATABASE_URL` with the service name `postgres`; 
 
 Both paths (the periodic scheduler tick and the UI's "Check now" button via `app/api/servers.py`) call `process_server` — never run a check by any other route.
 
+### A disabled server has no live state and never emails
+Unchecking **Enabled** stops the checks, so nothing could ever recover an open outage. `api/servers.py:update_server` therefore calls `checker.reset_monitoring_state` whenever `enabled` changes: the open outage is closed, queued emails are cancelled and the status returns to `unknown` (a re-enabled server that is still down opens a fresh outage and alerts again). `alerting._send` refuses disabled servers as the central gate, the minute passes filter on `s.enabled`, and web boot runs the same reset for every disabled server. Recipient overrides are a different thing: none checked means "use the default recipients", not "no emails".
+
 ### Schema is bootstrapped on every web boot
 `app/db.py:init_schema()` runs `CREATE TABLE IF NOT EXISTS` for every table on every web container start (gated by `RUN_MIGRATIONS=1`). There is **no migration framework**. Adding a new column to an existing table requires an explicit `ALTER TABLE IF NOT EXISTS` block in `SCHEMA_SQL` — `IF NOT EXISTS` patterns differ for ADD COLUMN, so use the `DO $$ ... EXCEPTION WHEN duplicate_column THEN NULL; END $$;` pattern, or just add a separate migration file when this gets nontrivial.
 

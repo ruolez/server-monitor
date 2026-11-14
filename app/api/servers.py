@@ -161,8 +161,9 @@ def update_server(server_id: int):
 
     with db.cursor(commit=True) as cur:
         if data:
-            cur.execute("SELECT 1 FROM servers WHERE id = %s", (server_id,))
-            if not cur.fetchone():
+            cur.execute("SELECT enabled FROM servers WHERE id = %s", (server_id,))
+            current = cur.fetchone()
+            if not current:
                 return jsonify(error="not found"), 404
             sets = ", ".join(f"{k} = %({k})s" for k in data)
             data["id"] = server_id
@@ -170,6 +171,8 @@ def update_server(server_id: int):
                 f"UPDATE servers SET {sets}, updated_at = now() WHERE id = %(id)s",
                 data,
             )
+            if "enabled" in data and data["enabled"] != current["enabled"]:
+                checker.reset_monitoring_state(cur, [server_id])
         if "override_recipient_ids" in body:
             cur.execute("DELETE FROM server_recipients WHERE server_id = %s", (server_id,))
             for rid in body["override_recipient_ids"] or []:

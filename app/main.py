@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from flask import Flask, jsonify, render_template, session
 
-from . import auth, db, selfmon
+from . import auth, checker, db, selfmon
 from .api import history as api_history
 from .api import maintenance as api_maintenance
 from .api import metrics as api_metrics
@@ -29,6 +29,9 @@ def create_app() -> Flask:
 
     if os.environ.get("RUN_MIGRATIONS", "1") == "1":
         db.init_schema()
+        with db.cursor(commit=True) as cur:
+            cur.execute("SELECT id FROM servers WHERE NOT enabled")
+            checker.reset_monitoring_state(cur, [r["id"] for r in cur.fetchall()])
         bootstrap_password = auth.ensure_bootstrap_admin()
         if bootstrap_password:
             logger.warning(
