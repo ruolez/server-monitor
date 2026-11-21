@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Self-hosted server monitor: ICMP/TCP checks on configured hosts, Gmail SMTP email alerts on DOWN/UP/repeating reminders, dark observability dashboard. Flask + Postgres + APScheduler + nginx, all in Docker Compose. Single-admin login. Targets Ubuntu 24 deployments via `install.sh`.
 
+Git: gitnot.site/ruolez/server-monitor (remote `origin`, since Nov 2026; the old github.com/ruolez/server-monitor is remote `github`, push both until every install has updated once). Installer: `https://gitnot.site/raw/ruolez/server-monitor/main/install.sh`. `install.sh update` re-points an install's `origin` to `REPO_URL` (before fetching, and again from the freshly pulled script), so an install still on GitHub moves over on its first update.
+
 ## Common commands
 
 ### Bring it up / down

